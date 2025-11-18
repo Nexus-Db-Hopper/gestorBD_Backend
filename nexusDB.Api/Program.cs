@@ -3,19 +3,46 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using nexusDB.Application.Configuration;
+using nexusDB.Application.Interfaces;
 using nexusDB.Infrastructure.Extensions;
 using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configura JwtSettings
+// --- 1. Definir la política de CORS ---
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+                      policy =>
+                      {
+                          // Para desarrollo, permitimos cualquier origen.
+                          // Para producción, debes restringirlo a la URL de tu frontend.
+                          // policy.WithOrigins("https://tu-frontend.com")
+                          policy.AllowAnyOrigin()
+                                .AllowAnyHeader()
+                                .AllowAnyMethod();
+                      });
+});
+
+// codigo para anbiente de producción
+// policy =>
+// {
+//     // Reemplaza la política abierta con una específica para tu dominio de producción
+//     policy.WithOrigins("https://www.tu-dominio-frontend.com")
+//         .AllowAnyHeader()
+//         .AllowAnyMethod();
+// });
+
+
+// 2. Configura JwtSettings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// 2. Add services to the container.
+// 3. Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 3. Configuración de Swagger con soporte para JWT
+// 4. Configuración de Swagger con soporte para JWT
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
@@ -29,10 +56,10 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 
-// 4. Database and other services from Infrastructure layer
-builder.Services.AddInfrastructure(builder.Configuration); // Esta línea registra todos los servicios necesarios
+// 5. Database and other services from Infrastructure layer
+builder.Services.AddInfrastructure(builder.Configuration);
 
-// 5. Configura el middleware de autenticación JWT
+// 6. Configura el middleware de autenticación JWT
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -63,6 +90,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Añadir el middleware de CORS
+app.UseCors(MyAllowSpecificOrigins);
 
 // El orden es CRÍTICO aquí.
 app.UseAuthentication();
