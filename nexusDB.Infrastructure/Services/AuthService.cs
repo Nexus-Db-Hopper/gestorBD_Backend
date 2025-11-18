@@ -86,4 +86,25 @@ public class AuthService : IAuthService
         var tokens = new TokenResponseDto { AccessToken = newAccessToken, RefreshToken = newRefreshToken };
         return (true, tokens, null);
     }
+
+    public async Task<bool> LogoutAsync(string userId)
+    {
+        if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+        {
+            return false;
+        }
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+        {
+            return false;
+        }
+
+        // Invalidar el Refresh Token
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = System.DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

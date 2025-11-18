@@ -11,4 +11,7 @@ public class User
     
     //Relation 1:N
     public Role Role { get; set; }
+    
+    public string? RefreshToken { get; set; }
+    public DateTime RefreshTokenExpiry { get; set; }
 }

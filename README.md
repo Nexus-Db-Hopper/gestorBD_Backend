@@ -2,7 +2,7 @@
 
 API RESTful construida con **.NET 9** y ASP.NET Core, diseñada siguiendo los principios de **Arquitectura Limpia (Clean Architecture)**. Proporciona una base sólida y segura para la gestión de usuarios y autenticación utilizando JSON Web Tokens (JWT) con soporte para Refresh Tokens y un sistema de logout seguro.
 
-## ✨ Características Principales
+## Características Principales
 
 -   **Autenticación Segura con JWT**: Implementación completa de Access Tokens y Refresh Tokens.
 -   **Logout del Lado del Servidor**: Invalidación de Refresh Tokens para un cierre de sesión seguro.
@@ -14,7 +14,7 @@ API RESTful construida con **.NET 9** y ASP.NET Core, diseñada siguiendo los pr
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## Arquitectura del Proyecto
 
 El proyecto sigue una estricta estructura de Arquitectura Limpia, donde las dependencias fluyen hacia el centro (Dominio).
 
@@ -30,7 +30,7 @@ Infrastructure/ → Application/ → Domain ←
 
 ---
 
-## 🚀 Cómo Empezar
+## Cómo Empezar
 
 Sigue estos pasos para levantar el entorno de desarrollo local.
 
@@ -146,7 +146,7 @@ Endpoint protegido que solo es accesible para usuarios con el rol "Admin".
 
 ---
 
-## 🧪 Flujo de Prueba en Swagger
+## Flujo de Prueba en Swagger
 
 1.  **Registra un usuario** usando el endpoint `POST /register`.
 2.  **Inicia sesión** con ese usuario usando `POST /login`. Copia el `accessToken` y el `refreshToken` de la respuesta.

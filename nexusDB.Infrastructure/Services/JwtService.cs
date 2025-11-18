@@ -22,6 +22,13 @@ public class JwtService : IJwtService
 
     public string GenerateToken(User user)
     {
+        // ¡IMPORTANTE! En una aplicación real, te asegurarías de que user.Role no es nulo
+        // antes de intentar acceder a sus propiedades.
+        if (user.Role == null)
+        {
+            throw new ArgumentNullException(nameof(user.Role), "El rol del usuario no puede ser nulo al generar un token.");
+        }
+
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_jwtSettings.SecretKey);
 
@@ -31,7 +38,8 @@ public class JwtService : IJwtService
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
+                // ***** LA CORRECCIÓN ESTÁ AQUÍ *****
+                new Claim(ClaimTypes.Role, user.Role.SpecificRole) 
             }),
             Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
             Issuer = _jwtSettings.Issuer,
@@ -53,8 +61,6 @@ public class JwtService : IJwtService
 
     public bool ValidateRefreshToken(User user, string refreshToken)
     {
-        // En un escenario real, aquí validarías contra la base de datos
-        // y comprobarías la fecha de expiración.
         return user.RefreshToken == refreshToken && user.RefreshTokenExpiry > DateTime.UtcNow;
     }
 }
