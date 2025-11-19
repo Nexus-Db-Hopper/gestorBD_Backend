@@ -19,7 +19,8 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseMySql(conn, ServerVersion.AutoDetect(conn))
+            options.UseMySql(conn,
+                ServerVersion.AutoDetect(conn))
         );
 
         // Registrar los servicios de infraestructura

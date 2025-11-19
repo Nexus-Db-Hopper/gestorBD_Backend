@@ -156,3 +156,27 @@ Endpoint protegido que solo es accesible para usuarios con el rol "Admin".
 6.  **Refresca la sesión**: Usa el `refreshToken` en el endpoint `POST /refresh`. Recibirás un nuevo par de tokens.
 7.  **Cierra sesión**: Asegurándote de que sigues autorizado con un token válido, ejecuta `POST /logout`. Recibirás una respuesta `204 No Content`.
 8.  **Verifica el logout**: Intenta usar el `refreshToken` original de nuevo en `POST /refresh`. Deberías recibir una respuesta `401 Unauthorized`, confirmando que el token fue invalidado.
+
+
+# Librerias Docker usadas (temporal, borrar al terminar)
+El proyecto "nexusDB.Api" tiene las referencias de paquete siguientes
+[net9.0]:
+Paquete de nivel superior                            Solicitado           Resuelto
+> Microsoft.AspNetCore.Authentication.JwtBearer      9.0.0-rc.2.24470.3   9.0.0-rc.2.24474.3
+> Microsoft.AspNetCore.OpenApi                       9.0.11               9.0.11            
+> Swashbuckle.AspNetCore.Filters                     9.0.0-beta.2         9.0.0             
+> Swashbuckle.AspNetCore.SwaggerUI                   9.0.6                9.0.6
+
+El proyecto "nexusDB.Application" tiene las referencias de paquete siguientes
+[net9.0]: No se encontró ningún paquete para este marco.
+El proyecto "nexusDB.Domain" tiene las referencias de paquete siguientes
+[net9.0]: No se encontró ningún paquete para este marco.
+El proyecto "nexusDB.Infrastructure" tiene las referencias de paquete siguientes                                                                                  
+[net9.0]:
+Paquete de nivel superior                   Solicitado   Resuelto
+> BCrypt.Net-Next                           4.0.3        4.0.3   
+> Docker.DotNet                             3.125.15     3.125.15
+> Microsoft.EntityFrameworkCore             9.0.0        9.0.0   
+> Microsoft.EntityFrameworkCore.Design      9.0.0        9.0.0   
+> Pomelo.EntityFrameworkCore.MySql          9.0.0        9.0.0   
+> System.IdentityModel.Tokens.Jwt           8.14.0       8.14.0  
