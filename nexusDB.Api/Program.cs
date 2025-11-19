@@ -46,7 +46,7 @@ builder.Services.AddScoped<IAesEncryptionService, AesEncryptionService>();
 
 // Providers
 builder.Services.AddScoped<IDatabaseProvider, MySqlProvider>();
-
+builder.Services.AddScoped<IDatabaseProvider, MongoDbProvider>();
 
 
 

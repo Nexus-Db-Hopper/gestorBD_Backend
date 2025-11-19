@@ -45,7 +45,7 @@ public class InstanceService : IInstanceService
             userPasswordHash,
             request.CreatedByUserId,
             request.OwnerUserId);
-        
+        Console.WriteLine("Entrando a crear msq");
         // La instancia se manda hacia el creador de contenedores de docker junto a la contraseña sin hashear
         //este devuelve el id que le da al contenedor (servira para encontrarlo a futuro)
         var containerId = await provider.CreateContainerAsync(instance, request.UserPassword, request.RootPassword);

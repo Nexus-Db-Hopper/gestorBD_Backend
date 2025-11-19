@@ -32,8 +32,10 @@ public class MySqlProvider : IDatabaseProvider
     public string Engine => "mysql";
 
     // Este metodo es para crear el contenedor
+    
     public async Task<string> CreateContainerAsync(Instance instance, string password, string rootPassword)
     {
+        Console.WriteLine("Entro a crear el contenedor ");
         
         // Esto descarga la base de la imagen de mysql pues hay que descargarla antes de usarla si no se tiene
         await _docker.Images.CreateImageAsync(

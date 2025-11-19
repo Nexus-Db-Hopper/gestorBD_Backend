@@ -180,3 +180,19 @@ Paquete de nivel superior                   Solicitado   Resuelto
 > Microsoft.EntityFrameworkCore.Design      9.0.0        9.0.0   
 > Pomelo.EntityFrameworkCore.MySql          9.0.0        9.0.0   
 > System.IdentityModel.Tokens.Jwt           8.14.0       8.14.0  
+> 
+
+
+ -Ejecuta desde la raiz del proyecto a la altura de la sln 
+
+                dotnet add ./nexusDB.Api package Microsoft.AspNetCore.Authentication.JwtBearer --version 9.0.0-rc.2.24474.3
+                dotnet add ./nexusDB.Api package Microsoft.AspNetCore.OpenApi --version 9.0.11
+                dotnet add ./nexusDB.Api package Swashbuckle.AspNetCore.Filters --version 9.0.0
+                dotnet add ./nexusDB.Api package Swashbuckle.AspNetCore.SwaggerUI --version 9.0.6
+                
+                dotnet add ./nexusDB.Infrastructure package BCrypt.Net-Next --version 4.0.3
+                dotnet add ./nexusDB.Infrastructure package Docker.DotNet --version 3.125.15
+                dotnet add ./nexusDB.Infrastructure package Microsoft.EntityFrameworkCore --version 9.0.0
+                dotnet add ./nexusDB.Infrastructure package Microsoft.EntityFrameworkCore.Design --version 9.0.0
+                dotnet add ./nexusDB.Infrastructure package Pomelo.EntityFrameworkCore.MySql --version 9.0.0
+                dotnet add ./nexusDB.Infrastructure package System.IdentityModel.Tokens.Jwt --version 8.14.0
