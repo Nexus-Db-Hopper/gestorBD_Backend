@@ -7,7 +7,8 @@ public class Instance
     public string Engine { get; set; } = string.Empty;
     public string Port { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
-    public string PasswordEncrypted { get; set; } =string.Empty;
+    public string RootPasswordEncrypted { get; set; } = string.Empty;
+    public string UserPasswordEncrypted { get; set; } =string.Empty;
     public int CreatedByUserId { get; set; }
     public int OwnerUserId { get; set; }
     public string ContainerId { get; set; }
@@ -16,14 +17,15 @@ public class Instance
     public User? OwnerUser { get; set; }
     public User? CreatedByUser { get; set; }
 
-    public Instance(string Name, string Engine, string Port,string username, string PasswordEncrypted, int CreatedByUserId, int OwnerUserId)
+    public Instance(string Name, string Engine, string Port,string username,string rootPasswordEncrypted, string userPasswordEncrypted, int CreatedByUserId, int OwnerUserId)
     {
         this.Id = Id;
         this.Name = Name;
         this.Engine = Engine;
         this.Port = Port;
         this.Username = username;
-        this.PasswordEncrypted = PasswordEncrypted;
+        this.RootPasswordEncrypted = rootPasswordEncrypted;
+        this.UserPasswordEncrypted = UserPasswordEncrypted;
         this.CreatedByUserId = CreatedByUserId;
         this.OwnerUserId = OwnerUserId;
         this.ContainerId = ContainerId;

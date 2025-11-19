@@ -6,7 +6,7 @@ public interface IDatabaseProvider
 {
     string Engine { get; } 
 
-    Task<string> CreateContainerAsync(Instance instance, string password);
+    Task<string> CreateContainerAsync(Instance instance, string password, string rootPassword);
     Task StartAsync(Instance instance);
     Task StopAsync(Instance instance);
     Task<string> ExecuteQueryAsync(Instance instance, string query);

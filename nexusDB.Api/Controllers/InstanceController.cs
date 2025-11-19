@@ -5,7 +5,7 @@ using nexusDB.Application.Interfaces.Instances;
 
 namespace nexusDB.Api.Controllers;
 
-//[Authorize]
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class InstanceController : ControllerBase
@@ -16,17 +16,20 @@ public class InstanceController : ControllerBase
         _instanceService = instanceService;
     }
 
-    //[Authorize(Roles = "Admin")]
+    // Aqui es como se crea la instancia (para otras implementaciones investigar) se necesita rol de admin para usarlo
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateInstance([FromBody] CreateInstanceRequest request)
     {
         try
         {
+            // Aqui se llama al servicio que se encuentra en application para crear la instancia
             var instanceId = await _instanceService.CreateInstanceAsync(request);
             return Ok(instanceId);
         }
         catch (Exception e)
         {
+            // Este return es por si algo falla para ver el error, se puede trabajar mas el catch para errores especificos
             return BadRequest(e.Message);
         }
     }
