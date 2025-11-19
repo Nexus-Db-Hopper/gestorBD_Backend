@@ -3,7 +3,16 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using nexusDB.Application.Configuration;
+using nexusDB.Application.Interfaces.Instances;
+using nexusDB.Application.Interfaces.Providers;
+using nexusDB.Application.Interfaces.Repositories;
+using nexusDB.Application.Interfaces.Security;
+using nexusDB.Application.Services;
+using nexusDB.Domain.Docker;
+using nexusDB.Domain.Docker.Providers;
 using nexusDB.Infrastructure.Extensions;
+using nexusDB.Infrastructure.Repositories;
+using nexusDB.Infrastructure.Services.Security;
 using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,6 +50,18 @@ builder.Services.AddSwaggerGen(options =>
     });
     options.OperationFilter<SecurityRequirementsOperationFilter>();
 });
+// Application
+builder.Services.AddScoped<IInstanceService, InstanceService>();
+
+// Domain/Infrastructure
+builder.Services.AddScoped<IInstanceRepository, InstanceRepository>();
+builder.Services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
+builder.Services.AddScoped<IAesEncryptionService, AesEncryptionService>();
+
+// Providers
+builder.Services.AddScoped<IDatabaseProvider, MySqlProvider>();
+
+
 
 // 5. Autenticación JWT
 builder.Services.AddAuthentication(options =>

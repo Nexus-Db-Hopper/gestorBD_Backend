@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
+    public DbSet<Instance> Instances { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,4 +60,6 @@ public class AppDbContext : DbContext
             new Role { Id = 2, SpecificRole = "Admin" }
         );
     }
+}
+    
 }
