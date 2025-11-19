@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
 
         // Registrar los servicios de infraestructura
         services.AddScoped<IJwtService, JwtService>();
-        services.AddScoped<IAuthService, AuthService>(); // <-- REGISTRO DEL NUEVO SERVICIO
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }
