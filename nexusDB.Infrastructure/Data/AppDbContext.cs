@@ -13,4 +13,15 @@ public class AppDbContext : DbContext
     // Tables:
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Configuración de seeding para la tabla Roles
+        modelBuilder.Entity<Role>().HasData(
+            new Role { Id = 1, SpecificRole = "User" },
+            new Role { Id = 2, SpecificRole = "Admin" }
+        );
+    }
 }
