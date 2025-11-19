@@ -86,7 +86,7 @@ public class MySqlProvider : IDatabaseProvider
         
         // Aqui se manda la informacion a docker esperando un resultado de el
         var result = await _docker.Containers.CreateContainerAsync(createParams);
-        
+        if (result == null) throw new Exception("Failed to create container");
         // Se saca el id generado por docker en el contenedor
         var containerId = result.ID;
         
