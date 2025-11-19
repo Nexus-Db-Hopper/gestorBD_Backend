@@ -180,6 +180,8 @@ Paquete de nivel superior                   Solicitado   Resuelto
 > Microsoft.EntityFrameworkCore.Design      9.0.0        9.0.0   
 > Pomelo.EntityFrameworkCore.MySql          9.0.0        9.0.0   
 > System.IdentityModel.Tokens.Jwt           8.14.0       8.14.0  
+>  Docker.DotNet                                         3.125.15
+
 > 
 
 
@@ -196,3 +198,5 @@ Paquete de nivel superior                   Solicitado   Resuelto
                 dotnet add ./nexusDB.Infrastructure package Microsoft.EntityFrameworkCore.Design --version 9.0.0
                 dotnet add ./nexusDB.Infrastructure package Pomelo.EntityFrameworkCore.MySql --version 9.0.0
                 dotnet add ./nexusDB.Infrastructure package System.IdentityModel.Tokens.Jwt --version 8.14.0
+                dotnet add ./nexusDB.Infrastructure package Docker.DotNet --version 3.125.15
+
