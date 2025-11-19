@@ -1,11 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using nexusDB.Application.Common;
 using nexusDB.Application.Dtos;
 using nexusDB.Application.Interfaces;
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
+using nexusDB.Domain.SeedWork;
 
 namespace nexusDB.Api.Controllers;
 
