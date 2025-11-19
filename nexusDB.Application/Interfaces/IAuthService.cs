@@ -1,3 +1,4 @@
+using nexusDB.Domain.SeedWork; // <-- USING ACTUALIZADO
 using nexusDB.Application.Dtos;
 using System.Threading.Tasks;
 
@@ -5,8 +6,8 @@ namespace nexusDB.Application.Interfaces;
 
 public interface IAuthService
 {
-    Task<(bool Succeeded, string? ErrorMessage)> RegisterUserAsync(RegisterUserDto registerDto);
-    Task<(bool Succeeded, TokenResponseDto? Tokens, string? ErrorMessage)> LoginUserAsync(LoginUserDto loginDto);
-    Task<(bool Succeeded, TokenResponseDto? Tokens, string? ErrorMessage)> RefreshTokenAsync(string refreshToken);
-    Task<bool> LogoutAsync(string userId); // <-- NUEVO MÉTODO
+    Task<Result> RegisterUserAsync(RegisterUserDto registerDto);
+    Task<Result<TokenResponseDto>> LoginUserAsync(LoginUserDto loginDto);
+    Task<Result<TokenResponseDto>> RefreshTokenAsync(string refreshToken);
+    Task<Result> LogoutAsync(string userId);
 }

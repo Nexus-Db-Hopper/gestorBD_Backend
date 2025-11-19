@@ -17,14 +17,28 @@ using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configura JwtSettings
+// --- CONFIGURACIÓN DE SERVICIOS ---
+
+// 1. Política de CORS
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins, policy =>
+    {
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
+// 2. Configuración de JWT y otros servicios de la capa de Aplicación/Infraestructura
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.AddInfrastructure(builder.Configuration);
 
-// 2. Add services to the container.
+// 3. Controladores y ProblemDetails para estandarizar errores HTTP
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddProblemDetails(); // <-- HABILITA PROBLEM DETAILS
 
-// 3. Configuración de Swagger con soporte para JWT
+// 4. Swagger
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
@@ -49,11 +63,7 @@ builder.Services.AddScoped<IDatabaseProvider, MySqlProvider>();
 
 
 
-
-// 4. Database and other services from Infrastructure layer
-builder.Services.AddInfrastructure(builder.Configuration); // Esta línea registra todos los servicios necesarios
-
-// 5. Configura el middleware de autenticación JWT
+// 5. Autenticación JWT
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -70,13 +80,16 @@ builder.Services.AddAuthentication(options =>
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtSettings.Issuer,
             ValidAudience = jwtSettings.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+            // MEJORA: Validar el tiempo de vida del token con un margen de cero.
+            ClockSkew = TimeSpan.Zero
         };
     });
 
+
+// --- CONFIGURACIÓN DEL PIPELINE HTTP ---
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -84,8 +97,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(MyAllowSpecificOrigins);
 
-// El orden es CRÍTICO aquí.
 app.UseAuthentication();
 app.UseAuthorization();
 

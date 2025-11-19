@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using nexusDB.Application.Dtos;
 using nexusDB.Application.Interfaces;
 using nexusDB.Domain.Entities;
+using nexusDB.Domain.VOs;
 using nexusDB.Infrastructure.Data;
-using System.Threading.Tasks;
+using nexusDB.Domain.SeedWork;
+
 
 namespace nexusDB.Infrastructure.Services;
 
@@ -18,93 +20,119 @@ public class AuthService : IAuthService
         _jwtService = jwtService;
     }
 
-    public async Task<(bool Succeeded, string? ErrorMessage)> RegisterUserAsync(RegisterUserDto registerDto)
+    public async Task<Result> RegisterUserAsync(RegisterUserDto registerDto)
     {
-        if (await _context.Users.AnyAsync(u => u.Email == registerDto.Email))
-        {
-            return (false, "User with this email already exists.");
-        }
-
-        var defaultRole = await _context.Roles.FirstOrDefaultAsync(r => r.SpecificRole == "User");
+        var defaultRole = await _context.Roles.SingleOrDefaultAsync(r => r.SpecificRole == "User");
         if (defaultRole == null)
         {
-            defaultRole = new Role { SpecificRole = "User" };
-            _context.Roles.Add(defaultRole);
-            await _context.SaveChangesAsync();
+            return Result.Failure("Default user role not found. System configuration error.");
         }
 
-        var user = new User
+        var userResult = User.Create(
+            registerDto.Name,
+            registerDto.LastName,
+            registerDto.Email,
+            registerDto.Password,
+            defaultRole.Id
+        );
+
+        if (userResult.IsFailure)
         {
-            Email = registerDto.Email,
-            Password = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-            Name = registerDto.Name,
-            LastName = registerDto.LastName,
-            IdRole = defaultRole.Id
-        };
+            return Result.Failure(userResult.Error!);
+        }
+
+        // --- CORRECCIÓN DE LA CONSULTA LINQ ---
+        // ANTES: Se intentaba acceder a u.Email.Value, lo cual EF Core no puede traducir.
+        // AHORA: Se compara directamente el objeto Email. EF Core usará el ValueConverter para traducir esto a una comparación de strings en SQL.
+        var emailToCheck = userResult.Value!.Email;
+        if (await _context.Users.AnyAsync(u => u.Email == emailToCheck))
+        {
+            return Result.Failure("User with this email already exists.");
+        }
+
+        var user = userResult.Value!;
+        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return (true, null);
+        return Result.Success();
     }
 
-    public async Task<(bool Succeeded, TokenResponseDto? Tokens, string? ErrorMessage)> LoginUserAsync(LoginUserDto loginDto)
+    public async Task<Result<TokenResponseDto>> LoginUserAsync(LoginUserDto loginDto)
     {
-        var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+        // --- CORRECCIÓN DE LA CONSULTA LINQ ---
+        // Creamos una instancia del Value Object Email para usarla en la consulta.
+        var emailToFindResult = Email.Create(loginDto.Email);
+        if (emailToFindResult.IsFailure)
+        {
+            // Si el formato del email es inválido, no puede existir en la BD.
+            return Result.Failure<TokenResponseDto>("Invalid credentials.");
+        }
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email == emailToFindResult.Value); // Comparamos directamente el objeto Email.
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
         {
-            return (false, null, "Invalid credentials.");
+            return Result.Failure<TokenResponseDto>("Invalid credentials.");
         }
 
         var accessToken = _jwtService.GenerateToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiry = System.DateTime.UtcNow.AddDays(7);
+        user.RefreshToken = BCrypt.Net.BCrypt.HashPassword(refreshToken);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
         await _context.SaveChangesAsync();
 
         var tokens = new TokenResponseDto { AccessToken = accessToken, RefreshToken = refreshToken };
-        return (true, tokens, null);
+        return Result.Success(tokens);
     }
 
-    public async Task<(bool Succeeded, TokenResponseDto? Tokens, string? ErrorMessage)> RefreshTokenAsync(string refreshToken)
+    // ... (el resto de los métodos no necesitan cambios)
+    public async Task<Result<TokenResponseDto>> RefreshTokenAsync(string refreshToken)
     {
-        var user = await _context.Users.Include(u => u.Role).SingleOrDefaultAsync(u => u.RefreshToken == refreshToken);
+        var usersWithTokens = await _context.Users
+            .Where(u => u.RefreshToken != null && u.RefreshTokenExpiry > DateTime.UtcNow)
+            .Include(u => u.Role)
+            .ToListAsync();
 
-        if (user == null || user.RefreshTokenExpiry <= System.DateTime.UtcNow)
+        User? user = usersWithTokens.FirstOrDefault(u => BCrypt.Net.BCrypt.Verify(refreshToken, u.RefreshToken!));
+
+        if (user == null)
         {
-            return (false, null, "Invalid or expired refresh token.");
+            return Result.Failure<TokenResponseDto>("Invalid or expired refresh token.");
         }
 
         var newAccessToken = _jwtService.GenerateToken(user);
         var newRefreshToken = _jwtService.GenerateRefreshToken();
 
-        user.RefreshToken = newRefreshToken;
+        user.RefreshToken = BCrypt.Net.BCrypt.HashPassword(newRefreshToken);
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
         await _context.SaveChangesAsync();
 
         var tokens = new TokenResponseDto { AccessToken = newAccessToken, RefreshToken = newRefreshToken };
-        return (true, tokens, null);
+        return Result.Success(tokens);
     }
 
-    public async Task<bool> LogoutAsync(string userId)
+    public async Task<Result> LogoutAsync(string userId)
     {
-        if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+        if (!int.TryParse(userId, out var id))
         {
-            return false;
+            return Result.Failure("Invalid user ID format.");
         }
 
         var user = await _context.Users.FindAsync(id);
         if (user == null)
         {
-            return false;
+            return Result.Success();
         }
 
-        // Invalidar el Refresh Token
         user.RefreshToken = null;
-        user.RefreshTokenExpiry = System.DateTime.UtcNow;
+        user.RefreshTokenExpiry = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        return true;
+        return Result.Success();
     }
 }
