@@ -47,7 +47,7 @@ builder.Services.AddScoped<IAesEncryptionService, AesEncryptionService>();
 // Providers
 builder.Services.AddScoped<IDatabaseProvider, MySqlProvider>();
 builder.Services.AddScoped<IDatabaseProvider, MongoDbProvider>();
-
+builder.Services.AddScoped<IDatabaseProvider, SqlServerProvider>();
 
 
 // 4. Database and other services from Infrastructure layer
