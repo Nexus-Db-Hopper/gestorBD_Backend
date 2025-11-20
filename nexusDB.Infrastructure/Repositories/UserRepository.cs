@@ -1,18 +1,19 @@
 using nexusDB.Application.Interfaces.Repositories;
 using nexusDB.Domain.Entities;
+using nexusDB.Infrastructure.Data;
 
 namespace nexusDB.Infrastructure.Repositories;
 
 public class UserRepository : IUserRepository
 {
-    private readonly IUserRepository _userRepository;
+    private readonly AppDbContext _dbContext;
 
-    public UserRepository(IUserRepository userRepository)
+    public UserRepository(AppDbContext dbContext)
     {
-        _userRepository = userRepository;
+        _dbContext = dbContext;
     }
     public async Task<User?> GetUserByIdAsync(int userId)
     {
-        return await _userRepository.GetUserByIdAsync(userId);
+        return await _dbContext.Users.FindAsync(userId);
     }
 }

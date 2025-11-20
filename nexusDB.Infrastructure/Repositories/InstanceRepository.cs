@@ -19,12 +19,7 @@ public class InstanceRepository : IInstanceRepository
         await _dbContext.SaveChangesAsync();
         return instance;
     }
-
-    public async Task<Instance?> GetByPortAsync(string port)
-    {
-        return await _dbContext.Instances.FirstOrDefaultAsync(i => i.Port == port);
-    }
-
+    
     public async Task<Instance?> GetByOwnerIdAsync(int id)
     {
         return await _dbContext.Instances.FirstOrDefaultAsync(i => i.OwnerUserId == id);

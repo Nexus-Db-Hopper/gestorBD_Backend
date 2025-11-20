@@ -1,100 +1,42 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using Microsoft.Extensions.Configuration;
+using MySqlConnector;
+using nexusDB.Application.Dtos.Instances;
 using nexusDB.Application.Interfaces.Providers;
 using nexusDB.Domain.Entities;
+using Dapper;
 
 namespace nexusDB.Domain.Docker.Providers;
 
 public class MySqlProvider : IDatabaseProvider
 {
-    private readonly DockerClient _docker;
+    private readonly string? _host;
+    private readonly int _port;
+    private readonly string? _adminUser;
+    private readonly string? _adminPassword;
 
-    public MySqlProvider()
+    public MySqlProvider(IConfiguration config)
     {
-        
-        // Esto sirve para que docker detecte donde se guarda el docker sock pues en windows es diferente
-        // Cuando se suba a la vps funcionara con el de abajo que es el mismo que usa linux
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-        {
-            _docker = new DockerClientConfiguration(
-                new Uri("npipe://./pipe/docker_engine")
-            ).CreateClient();
-        }
-        else
-        {
-            _docker = new DockerClientConfiguration(
-                new Uri("unix:///var/run/docker.sock")
-            ).CreateClient();
-        }
+        _host = config["Containers:MySqlHost"];
+        _port = int.Parse(config["Containers:MySqlPort"] ?? string.Empty);
+        _adminUser = config["Containers:MySqlAdminUser"];
+        _adminPassword = config["Containers:MySqlAdminPassword"];
     }
 
     // Esto determina a cual Engine pertenece este proveedor (se selecciona en el factory)
     public string Engine => "mysql";
 
     // Este metodo es para crear el contenedor
-    public async Task<string> CreateContainerAsync(Instance instance, string password, string rootPassword)
+    public async Task CreateContainerAsync(Instance instance, string password)
     {
-        
-        // Esto descarga la base de la imagen de mysql pues hay que descargarla antes de usarla si no se tiene
-        await _docker.Images.CreateImageAsync(
-            new ImagesCreateParameters
-            {
-                FromImage = "mysql",
-                Tag = "latest"
-            },
-            null,
-            new Progress<JSONMessage>()
-        );
-        
-        // Esto crea los parametros necesarios para la creacion del contenedor
-        var createParams = new CreateContainerParameters
-        {
-            // La imagen recien descargada
-            Image = "mysql:latest",
-            
-            // El nombre de la instancia (dado por el profesor, si se prefere se puede generar con el id)
-            Name = instance.Name,
-            
-            // Estas son variables de entorno que crean el perfil y la forma de ingreso a la instancia
-            Env = new List<string>
-            {
-                // Esta es la contraseña dada por el profesor para permisos de superadmin
-                $"MYSQL_ROOT_PASSWORD={rootPassword}",
-                
-                // Este es el usuario de acceso propuesto por el profesor
-                $"MYSQL_USER={instance.Username}",
-                
-                // Esta es una contraseña que sirve para el perfil especifico
-                $"MYSQL_PASSWORD={password}",
-            },
-            HostConfig = new HostConfig
-            {
-                
-                // Aqui se configura el puerto propuesto por el profesor
-                PortBindings = new Dictionary<string, IList<PortBinding>>
-                {
-                    // Este es el puerto default de mysql (necesario para mysql y su ejecucion)
-                    // Este cambia segun que motor uses
-                    ["3306/tcp"] = new List<PortBinding>
-                    {
-                        // Este es el puerto que se expone publicamente, osea por el que se accede a la instancia especifica
-                        new PortBinding { HostPort = instance.Port }
-                    }
-                }
-            }
-        };
-        
-        // Aqui se manda la informacion a docker esperando un resultado de el
-        var result = await _docker.Containers.CreateContainerAsync(createParams);
-        if (result == null) throw new Exception("Failed to create container");
-        // Se saca el id generado por docker en el contenedor
-        var containerId = result.ID;
-        
-        // Se inicializa el contenedor para que este abierto al crearse
-        await _docker.Containers.StartContainerAsync(containerId, null);
-        
-        // Se devuelve su id para su uso en service
-        return containerId;
+        var connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword};";
+        using var conn =  new MySqlConnection(connectionString);
+        await conn.OpenAsync();
+        await conn.ExecuteAsync($"CREATE DATABASE `{instance.Name}`;");
+        await conn.ExecuteAsync($"CREATE USER '{instance.Username}'@'%' IDENTIFIED BY '{password}';");
+        await conn.ExecuteAsync($"GRANT ALL PRIVILEGES ON `{instance.Name}`.* TO '{instance.Username}'@'%';");
+        await conn.ExecuteAsync("FLUSH PRIVILEGES");
     }
 
     public Task StartAsync(Instance instance)
@@ -107,8 +49,54 @@ public class MySqlProvider : IDatabaseProvider
         throw new NotImplementedException();
     }
 
-    public Task<string> ExecuteQueryAsync(Instance instance, string query)
+    public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
-        throw new NotImplementedException();
+        var queryResult = new QueryResultDto();
+        try
+        {
+            var connectionString =
+                $"server={_host};port={_port};database={instance.Name};User Id={instance.Username};password={decryptedPassword};";
+            using var conn = new MySqlConnection(connectionString);
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(query, conn);
+            bool isSelected = query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase);
+            if (isSelected)
+            {
+                using var reader = await cmd.ExecuteReaderAsync();
+                var data = new List<Dictionary<string, object?>>();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object?>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var columnName = reader.GetName(i);
+                        var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                        row[columnName] = value;
+                    }
+                    data.Add(row);
+                }
+
+                queryResult.Data = data;
+                queryResult.Success = true;
+                queryResult.Message = "Query succesfull";
+                return queryResult;
+            }
+            else
+            {
+                int affected = await cmd.ExecuteNonQueryAsync();
+                queryResult.Success = true;
+                queryResult.Message = $"Query succesfull, rows affected: {affected}";
+                queryResult.Data = new List<IDictionary<string, object?>>();
+                return queryResult;
+            }
+            
+        }
+        catch (Exception e)
+        {
+            queryResult.Success = false;
+            queryResult.Message = $"Query error: {e.Message}";
+            queryResult.Data = null;
+            return queryResult;
+        }
     }
 }

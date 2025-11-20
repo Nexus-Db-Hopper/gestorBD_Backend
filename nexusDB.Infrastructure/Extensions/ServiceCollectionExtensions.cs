@@ -2,8 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using nexusDB.Application.Interfaces;
+using nexusDB.Application.Interfaces.Providers;
+using nexusDB.Application.Interfaces.Repositories;
+using nexusDB.Application.Interfaces.Security;
+using nexusDB.Domain.Docker;
+using nexusDB.Domain.Docker.Providers;
 using nexusDB.Infrastructure.Data;
+using nexusDB.Infrastructure.Repositories;
 using nexusDB.Infrastructure.Services;
+using nexusDB.Infrastructure.Services.Security;
 
 namespace nexusDB.Infrastructure.Extensions;
 
@@ -26,7 +33,12 @@ public static class ServiceCollectionExtensions
         // Registrar los servicios de infraestructura
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
-
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IInstanceRepository, InstanceRepository>();
+        services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
+        services.AddSingleton<IAesEncryptionService, AesEncryptionService>();
+        services.AddSingleton<IDatabaseProvider, MySqlProvider>();
+        
         return services;
     }
 }

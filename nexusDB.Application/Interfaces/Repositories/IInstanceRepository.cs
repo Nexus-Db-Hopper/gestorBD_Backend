@@ -5,6 +5,5 @@ namespace nexusDB.Application.Interfaces.Repositories;
 public interface IInstanceRepository
 {
     public Task<Instance> AddAsync(Instance instance);
-    public Task<Instance?> GetByPortAsync(string port);
     public Task<Instance?> GetByOwnerIdAsync(int id);
 }
