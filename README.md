@@ -123,3 +123,84 @@ Paquete de nivel superior                   Solicitado   Resuelto
 > Microsoft.EntityFrameworkCore.Design      9.0.0        9.0.0   
 > Pomelo.EntityFrameworkCore.MySql          9.0.0        9.0.0   
 > System.IdentityModel.Tokens.Jwt           8.14.0       8.14.0  
+
+### diagrama codigo casos de uso (codigo para visualizar en PlantUML)
+
+```plantuml
+@startuml
+!define RECTANGLE class
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+skinparam usecase {
+  BackgroundColor #0EA5E9          <<Admin>>
+  BorderColor     #0369A1          <<Admin>>
+  BackgroundColor #10B981          <<Student>>
+  BorderColor     #047857          <<Student>>
+}
+
+actor Administrador
+actor Estudiante
+
+rectangle "Sistema GestorBD" {
+  usecase "UC-01\nIniciar sesión" as UC01
+
+  usecase "UC-02a\nCrear instancia BD" as UC02a
+  usecase "UC-02b\nIniciar/detener motor" as UC02b
+  usecase "UC-02c\nEliminar instancia" as UC02c
+
+  usecase "UC-03\nAsignar instancia" as UC03
+  usecase "UC-04\nMonitorear logs" as UC04
+  usecase "UC-09\nReiniciar motor" as UC09
+
+  usecase "UC-05\nVer dashboard motor" as UC05
+  usecase "UC-06\nEjecutar consultas" as UC06
+  usecase "UC-07\nCRUD visual" as UC07
+  usecase "UC-08\nExportar datos" as UC08
+
+  ' Servicios internos (sin actor stick)
+  usecase "Validar Docker" as UC10
+  usecase "Notificar asignación" as UC11
+}
+
+' --------- Relaciones actor → UC ---------
+Administrador --> UC01
+Estudiante    --> UC01
+
+Administrador --> UC02a
+Administrador --> UC02b
+Administrador --> UC02c
+Administrador --> UC03
+Administrador --> UC04
+Administrador --> UC09
+
+Estudiante --> UC05
+Estudiante --> UC06
+Estudiante --> UC07
+Estudiante --> UC08
+
+' --------- Includes (obligatorios) ---------
+UC02a ..> UC10 : <<include>>
+UC02b ..> UC10 : <<include>>
+UC02c ..> UC10 : <<include>>
+UC03  ..> UC11 : <<include>>
+UC09  ..> UC10 : <<include>>
+
+' --------- Extend (opcional) ---------
+UC06 ..> UC07 : <<extend>>
+@enduml
+```
+
+| UC-ID  | Nombre (en el diagrama) | Actor      | ¿Qué hace?           | Criterio rápido         |
+| ------ | ----------------------- | ---------- | -------------------- | ----------------------- |
+| UC-01  | Iniciar sesión          | Ambos      | Login JWT            | Token ≤ 15 min          |
+| UC-02a | Crear instancia BD      | Admin      | Crea motor           | Puerto 7000-7999 único  |
+| UC-02b | Iniciar/detener motor   | Admin      | Start/stop           | Docker running ≤ 30 s   |
+| UC-02c | Eliminar instancia      | Admin      | Borra contenedor     | Sin errores, log audit  |
+| UC-03  | Asignar instancia       | Admin      | Entrega BD a alumno  | Solo sus instancias     |
+| UC-04  | Monitorear logs         | Admin      | Ver logs/métricas    | Delay < 5 s             |
+| UC-09  | Reiniciar motor         | Admin      | Recupera falla       | Reinicio < 30 s         |
+| UC-05  | Ver dashboard motor     | Estudiante | Ve datos de conexión | Carga ≤ 3 s             |
+| UC-06  | Ejecutar consultas      | Estudiante | Query SQL/NoSQL      | Resultados < 30 s       |
+| UC-07  | CRUD visual             | Estudiante | Edición gráfica      | Extend opcional         |
+| UC-08  | Exportar datos          | Estudiante | Descarga CSV/JSON    | Archivo ≤ 50 MB, < 10 s |
