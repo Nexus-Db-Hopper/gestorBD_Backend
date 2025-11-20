@@ -29,8 +29,6 @@ public class InstanceService : IInstanceService
         if (creator == null) throw new KeyNotFoundException("Creator of the instance not found");
         var owner = await _userRepository.GetUserByIdAsync(request.OwnerUserId);
         if (owner == null) throw new KeyNotFoundException("Owner to assign the instance was not found");
-        var occupiedPort = await _instanceRepository.GetByPortAsync(request.Port);
-        if (occupiedPort !=  null) throw new ArgumentException("Port already occupied");
         var availableOwner = await _instanceRepository.GetByOwnerIdAsync(request.OwnerUserId);
         if (availableOwner != null) throw new ArgumentException("This person already is the owner of an instance");
         // se busca el proveedor del motor a traves del factory (mysql, mariadb, mongo, etc)
@@ -41,28 +39,24 @@ public class InstanceService : IInstanceService
         // Se hashea la contraseña que se necesita para acceder a la instancia para que no se filtre
         // Para otros metodos donde se requiera acceder con el mismo servicio ya existe un desencriptador 
         var userPasswordHash =  _aesEncryptionService.Encrypt(request.UserPassword);
-        var rootPasswordHash =  _aesEncryptionService.Encrypt(request.RootPassword);
         
         // se crea una instancia de manera local
         var instance = new Instance(
             request.Name,
             request.Engine,
-            request.Port,
             request.Username,
-            rootPasswordHash,
             userPasswordHash,
             request.CreatedByUserId,
-            request.OwnerUserId);
+            request.OwnerUserId,
+            request.ContainerName
+            );
         
         // La instancia se manda hacia el creador de contenedores de docker junto a la contraseña sin hashear
         //este devuelve el id que le da al contenedor (servira para encontrarlo a futuro)
-        var containerId = await provider.CreateContainerAsync(instance, request.UserPassword, request.RootPassword);
+        await provider.CreateContainerAsync(instance, request.UserPassword);
         
-        // Se guarda el id en la instancia local
-        instance.ContainerId = containerId;
-
         // Se le da el estado a la instancia (esto se puede mejorar)
-        instance.State = InstanceState.Running;
+        instance.State = InstanceState.Active;
         
         // Se guarda la instancia en la base de datos y se actualiza la local
         instance = await _instanceRepository.AddAsync(instance);
