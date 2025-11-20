@@ -12,19 +12,27 @@ public class InstanceService : IInstanceService
     private readonly IInstanceRepository _instanceRepository;
     private readonly IAesEncryptionService _aesEncryptionService;
     private readonly IDatabaseProviderFactory _databaseProviderFactory;
+    private readonly IUserRepository _userRepository;
 
-    public InstanceService(IInstanceRepository instanceRepository, IEnumerable<IDatabaseProvider> databaseProviders,  IAesEncryptionService aesEncryptionService, IDatabaseProviderFactory databaseProviderFactory)
+    public InstanceService(IInstanceRepository instanceRepository, IEnumerable<IDatabaseProvider> databaseProviders,  IAesEncryptionService aesEncryptionService, IDatabaseProviderFactory databaseProviderFactory, IUserRepository userRepository)
     {
         _instanceRepository = instanceRepository;
         _aesEncryptionService = aesEncryptionService;
         _databaseProviderFactory = databaseProviderFactory;
+        _userRepository = userRepository;
     }
 
     // Aqui se crea la instancia, para agregar mas implementaciones recordar agregarlas tambien en la interface
     public async Task<int> CreateInstanceAsync(CreateInstanceRequest request)
     {
-        // Aqui se deben agregar verificaciones para saber si el owner y el created existen, tambien se puede verificar si 
-        // el puerto externo (seleccionado por el profesor) esta ocupado o no a traves de la base de datos 
+        var creator = await _userRepository.GetUserByIdAsync(request.OwnerUserId);
+        if (creator == null) throw new KeyNotFoundException("Creator of the instance not found");
+        var owner = await _userRepository.GetUserByIdAsync(request.OwnerUserId);
+        if (owner == null) throw new KeyNotFoundException("Owner to assign the instance was not found");
+        var occupiedPort = await _instanceRepository.GetByPortAsync(request.Port);
+        if (occupiedPort !=  null) throw new ArgumentException("Port already occupied");
+        var availableOwner = await _instanceRepository.GetByOwnerIdAsync(request.OwnerUserId);
+        if (availableOwner != null) throw new ArgumentException("This person already is the owner of an instance");
         // se busca el proveedor del motor a traves del factory (mysql, mariadb, mongo, etc)
         var provider = _databaseProviderFactory.GetProvider(request.Engine);
         // Si no se encuentra proveedor se suelta que no esta soportado en la aplicacion
