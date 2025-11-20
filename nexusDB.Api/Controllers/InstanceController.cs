@@ -33,4 +33,19 @@ public class InstanceController : ControllerBase
             return BadRequest(e.Message);
         }
     }
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> ExecuteQueryAsync([FromBody] QueryRequestDto queryRequest)
+    {
+        try
+        {
+            var queryResult = await _instanceService.ExecuteQueryAsync(queryRequest);
+            return Ok(queryResult);
+        }
+        catch (Exception e)
+        {
+            return BadRequest($"Unexpected error: {e.Message}");
+        }
+    }
 }

@@ -1,5 +1,7 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using MySqlConnector;
+using nexusDB.Application.Dtos.Instances;
 using nexusDB.Application.Interfaces.Providers;
 using nexusDB.Domain.Entities;
 
@@ -81,6 +83,13 @@ public class MySqlProvider : IDatabaseProvider
                         new PortBinding { HostPort = instance.Port }
                     }
                 }
+            },
+            Labels = new Dictionary<string, string>
+            {
+                { "instanceId", instance.Id.ToString() },
+                { "teacherId", instance.CreatedByUserId.ToString() },
+                { "engine", "mysql" },
+                { "studentId", instance.OwnerUserId.ToString() }
             }
         };
         
@@ -107,8 +116,49 @@ public class MySqlProvider : IDatabaseProvider
         throw new NotImplementedException();
     }
 
-    public Task<string> ExecuteQueryAsync(Instance instance, string query)
+    public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
-        throw new NotImplementedException();
+        var connectionString = new MySqlConnectionStringBuilder
+        {
+            Server = "localhost",
+            Port = Convert.ToUInt32(instance.Port),
+            UserID = instance.Username,
+            Password = decryptedPassword
+        }.ToString();
+        using var conn = new MySqlConnection(connectionString);
+        await conn.OpenAsync();
+        using var cmd = new MySqlCommand();
+        var result = new QueryResultDto();
+        try
+        {
+            var rows = new List<IDictionary<string, object?>>();
+            if (query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            {
+                using var reader = await cmd.ExecuteReaderAsync();
+                
+                
+
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object?>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = 
+                            reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    }
+                    rows.Add(row);
+                }
+            }
+            result.Success = true;
+            result.Data = rows;
+            result.Message = $"Successfully executed Query";
+            return result;
+        }
+        catch (Exception e)
+        {
+            result.Success = false;
+            result.Message = $"Error Executing Query: {e.Message}";
+            return result;
+        }
     }
 }
