@@ -36,18 +36,21 @@ public class MySqlProvider : IDatabaseProvider
     // Este metodo es para crear el contenedor
     public async Task<string> CreateContainerAsync(Instance instance, string password, string rootPassword)
     {
-        
-        // Esto descarga la base de la imagen de mysql pues hay que descargarla antes de usarla si no se tiene
-        await _docker.Images.CreateImageAsync(
-            new ImagesCreateParameters
-            {
-                FromImage = "mysql",
-                Tag = "latest"
-            },
-            null,
-            new Progress<JSONMessage>()
-        );
-        
+
+        var images = await _docker.Images.ListImagesAsync(new ImagesListParameters());
+        bool exists = images.Any(img => img.RepoTags != null && img.RepoTags.Contains("mysql:latest"));
+        if (!exists)
+        {
+            await _docker.Images.CreateImageAsync(
+                new ImagesCreateParameters
+                {
+                    FromImage = "mysql",
+                    Tag = "latest"
+                },
+                null,
+                new Progress<JSONMessage>()
+            );
+        }
         // Esto crea los parametros necesarios para la creacion del contenedor
         var createParams = new CreateContainerParameters
         {
