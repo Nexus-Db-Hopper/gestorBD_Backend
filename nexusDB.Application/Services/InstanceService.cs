@@ -71,7 +71,7 @@ public class InstanceService : IInstanceService
         var instance = await _instanceRepository.GetByOwnerIdAsync(queryRequest.OwnerUserId);
         if (instance == null) return new QueryResultDto{Success = false,Message="Instance for this student was not found"};
         var provider = _databaseProviderFactory.GetProvider(instance.Engine);
-        if  (provider == null) return new QueryResultDto{Success = false,Message="Provider not supported"};
+        if (provider == null) return new QueryResultDto{Success = false,Message="Provider not supported"};
         var decryptedPassword = _aesEncryptionService.Decrypt(instance.UserPasswordEncrypted);
         return await provider.ExecuteQueryAsync(instance, queryRequest.Query, decryptedPassword);
     } 

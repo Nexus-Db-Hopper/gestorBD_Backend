@@ -51,6 +51,52 @@ public class MySqlProvider : IDatabaseProvider
 
     public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
-        throw new NotImplementedException();
+        var queryResult = new QueryResultDto();
+        try
+        {
+            var connectionString =
+                $"server={_host};port={_port};database={instance.Name};User Id={instance.Username};password={decryptedPassword};";
+            using var conn = new MySqlConnection(connectionString);
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(query, conn);
+            bool isSelected = query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase);
+            if (isSelected)
+            {
+                using var reader = await cmd.ExecuteReaderAsync();
+                var data = new List<Dictionary<string, object?>>();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object?>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var columnName = reader.GetName(i);
+                        var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                        row[columnName] = value;
+                    }
+                    data.Add(row);
+                }
+
+                queryResult.Data = data;
+                queryResult.Success = true;
+                queryResult.Message = "Query succesfull";
+                return queryResult;
+            }
+            else
+            {
+                int affected = await cmd.ExecuteNonQueryAsync();
+                queryResult.Success = true;
+                queryResult.Message = $"Query succesfull, rows affected: {affected}";
+                queryResult.Data = new List<IDictionary<string, object?>>();
+                return queryResult;
+            }
+            
+        }
+        catch (Exception e)
+        {
+            queryResult.Success = false;
+            queryResult.Message = $"Query error: {e.Message}";
+            queryResult.Data = null;
+            return queryResult;
+        }
     }
 }
