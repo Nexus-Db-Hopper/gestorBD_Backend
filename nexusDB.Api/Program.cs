@@ -53,13 +53,6 @@ builder.Services.AddSwaggerGen(options =>
 // Application
 builder.Services.AddScoped<IInstanceService, InstanceService>();
 
-// Domain/Infrastructure
-builder.Services.AddScoped<IInstanceRepository, InstanceRepository>();
-builder.Services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
-builder.Services.AddScoped<IAesEncryptionService, AesEncryptionService>();
-
-// Providers
-builder.Services.AddScoped<IDatabaseProvider, MySqlProvider>();
 
 
 

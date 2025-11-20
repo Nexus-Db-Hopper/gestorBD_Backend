@@ -11,7 +11,7 @@ public class InstanceService : IInstanceService
 {
     private readonly IInstanceRepository _instanceRepository;
     private readonly IAesEncryptionService _aesEncryptionService;
-    private readonly IDatabaseProviderFactory _databaseProviderFactory;
+    private readonly IDatabaseProviderFactory _databaseProviderFactory; 
     private readonly IUserRepository _userRepository;
 
     public InstanceService(IInstanceRepository instanceRepository, IEnumerable<IDatabaseProvider> databaseProviders,  IAesEncryptionService aesEncryptionService, IDatabaseProviderFactory databaseProviderFactory, IUserRepository userRepository)
