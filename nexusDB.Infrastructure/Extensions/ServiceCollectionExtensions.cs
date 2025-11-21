@@ -37,7 +37,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInstanceRepository, InstanceRepository>();
         services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
         services.AddSingleton<IAesEncryptionService, AesEncryptionService>();
+
+        // Proveedores de Base de Datos
         services.AddSingleton<IDatabaseProvider, MySqlProvider>();
+        services.AddSingleton<IDatabaseProvider, PostgreSqlProvider>();
         
         return services;
     }
