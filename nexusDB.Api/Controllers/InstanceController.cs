@@ -33,8 +33,7 @@ public class InstanceController : ControllerBase
             return BadRequest(e.Message);
         }
     }
-
-    [Authorize]
+    
     [HttpPost]
     public async Task<IActionResult> ExecuteQueryAsync([FromBody] QueryRequestDto queryRequest)
     {
@@ -46,6 +45,36 @@ public class InstanceController : ControllerBase
         catch (Exception e)
         {
             return BadRequest($"Unexpected error: {e.Message}");
+        }
+    }
+
+    [HttpPut("{id}/start")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StartInstanceAsync(int id)
+    {
+        try
+        {
+           await _instanceService.StartInstanceAsync(id);
+           return Ok("User updated");
+        }
+        catch (Exception e)
+        {
+            return BadRequest("Access starting: " + e.Message);
+        }
+    }
+    
+    [HttpPut("{id}/stop")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StopInstanceAsync(int id)
+    {
+        try
+        {
+            await _instanceService.StopInstanceAsync(id);
+            return Ok("Access updated");
+        }
+        catch (Exception e)
+        {
+            return BadRequest("Error starting: " + e.Message);
         }
     }
 }

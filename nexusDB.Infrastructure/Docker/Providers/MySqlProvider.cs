@@ -39,14 +39,24 @@ public class MySqlProvider : IDatabaseProvider
         await conn.ExecuteAsync("FLUSH PRIVILEGES");
     }
 
-    public Task StartAsync(Instance instance)
+    public async Task StartAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        string connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword}";
+        using var conn = new MySqlConnection(connectionString);
+        await conn.OpenAsync();
+        string sql = $"ALTER USER `{instance.Username}`@'%' ACCOUNT UNLOCK";
+        using var cmd = new MySqlCommand(sql, conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
-    public Task StopAsync(Instance instance)
+    public async Task StopAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        string connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword}";
+        using var conn = new MySqlConnection(connectionString);
+        await conn.OpenAsync();
+        string sql = $"ALTER USER `{instance.Username}`@'%' ACCOUNT LOCK";
+        using var cmd = new MySqlCommand(sql, conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
