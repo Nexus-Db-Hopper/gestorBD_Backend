@@ -18,7 +18,7 @@ public class InstanceController : ControllerBase
 
     // Aqui es como se crea la instancia (para otras implementaciones investigar) se necesita rol de admin para usarlo
     [Authorize(Roles = "Admin")]
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<IActionResult> CreateInstance([FromBody] CreateInstanceRequest request)
     {
         try
@@ -33,9 +33,8 @@ public class InstanceController : ControllerBase
             return BadRequest(e.Message);
         }
     }
-
-    [Authorize]
-    [HttpPost]
+    
+    [HttpPost("execute")]
     public async Task<IActionResult> ExecuteQueryAsync([FromBody] QueryRequestDto queryRequest)
     {
         try
@@ -46,6 +45,36 @@ public class InstanceController : ControllerBase
         catch (Exception e)
         {
             return BadRequest($"Unexpected error: {e.Message}");
+        }
+    }
+
+    [HttpPut("{id}/start")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StartInstanceAsync(int id)
+    {
+        try
+        {
+           await _instanceService.StartInstanceAsync(id);
+           return Ok("User updated");
+        }
+        catch (Exception e)
+        {
+            return BadRequest("Access starting: " + e.Message);
+        }
+    }
+    
+    [HttpPut("{id}/stop")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StopInstanceAsync(int id)
+    {
+        try
+        {
+            await _instanceService.StopInstanceAsync(id);
+            return Ok("Access updated");
+        }
+        catch (Exception e)
+        {
+            return BadRequest("Error starting: " + e.Message);
         }
     }
 }

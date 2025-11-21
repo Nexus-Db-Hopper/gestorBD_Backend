@@ -22,6 +22,12 @@ public class InstanceRepository : IInstanceRepository
     
     public async Task<Instance?> GetByOwnerIdAsync(int id)
     {
-        return await _dbContext.Instances.FirstOrDefaultAsync(i => i.OwnerUserId == id);
+        return await _dbContext.Instances.FirstOrDefaultAsync(i => i.OwnerUserId == id && i.State != InstanceState.Deleted);
+    }
+
+    public async Task UpdateAsync(Instance instance)
+    {
+        _dbContext.Instances.Update(instance);
+        await _dbContext.SaveChangesAsync();
     }
 }

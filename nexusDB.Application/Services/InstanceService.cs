@@ -74,5 +74,27 @@ public class InstanceService : IInstanceService
         if (provider == null) return new QueryResultDto{Success = false,Message="Provider not supported"};
         var decryptedPassword = _aesEncryptionService.Decrypt(instance.UserPasswordEncrypted);
         return await provider.ExecuteQueryAsync(instance, queryRequest.Query, decryptedPassword);
-    } 
+    }
+
+    public async Task StartInstanceAsync(int ownerId)
+    {
+        var instance = await _instanceRepository.GetByOwnerIdAsync(ownerId);
+        if (instance == null) throw new KeyNotFoundException("Instance was not found");
+        var provider = _databaseProviderFactory.GetProvider(instance.Engine);
+        await provider.StartAsync(instance);
+        instance.State = InstanceState.Active;
+        await _instanceRepository.UpdateAsync(instance);
+        
+    }
+    
+    public async Task StopInstanceAsync(int ownerId)
+    {
+        var instance = await _instanceRepository.GetByOwnerIdAsync(ownerId);
+        if (instance == null) throw new KeyNotFoundException("Instance not found");
+        var provider = _databaseProviderFactory.GetProvider(instance.Engine);
+        await provider.StopAsync(instance);
+        instance.State = InstanceState.Active;
+        await _instanceRepository.UpdateAsync(instance);
+        
+    }
 }

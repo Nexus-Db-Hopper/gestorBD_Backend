@@ -6,4 +6,5 @@ public interface IInstanceRepository
 {
     public Task<Instance> AddAsync(Instance instance);
     public Task<Instance?> GetByOwnerIdAsync(int id);
+    public Task UpdateAsync(Instance instance);
 }
