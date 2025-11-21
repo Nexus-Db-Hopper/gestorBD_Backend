@@ -37,8 +37,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInstanceRepository, InstanceRepository>();
         services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
         services.AddSingleton<IAesEncryptionService, AesEncryptionService>();
-        services.AddSingleton<IDatabaseProvider, MySqlProvider>();
-        
+        services.AddSingleton<IDatabaseProvider, MySqlProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
+        services.AddSingleton<IDatabaseProvider, SqlServerProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
         return services;
     }
 }
