@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using nexusDB.Application.Interfaces.Repositories;
 using nexusDB.Domain.Entities;
 using nexusDB.Infrastructure.Data;
@@ -17,5 +18,10 @@ public class InstanceRepository : IInstanceRepository
         _dbContext.Instances.Add(instance);
         await _dbContext.SaveChangesAsync();
         return instance;
+    }
+    
+    public async Task<Instance?> GetByOwnerIdAsync(int id)
+    {
+        return await _dbContext.Instances.FirstOrDefaultAsync(i => i.OwnerUserId == id);
     }
 }
