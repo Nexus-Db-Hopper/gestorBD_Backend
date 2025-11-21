@@ -18,7 +18,7 @@ public class InstanceController : ControllerBase
 
     // Aqui es como se crea la instancia (para otras implementaciones investigar) se necesita rol de admin para usarlo
     [Authorize(Roles = "Admin")]
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<IActionResult> CreateInstance([FromBody] CreateInstanceRequest request)
     {
         try
@@ -34,7 +34,7 @@ public class InstanceController : ControllerBase
         }
     }
     
-    [HttpPost]
+    [HttpPost("execute")]
     public async Task<IActionResult> ExecuteQueryAsync([FromBody] QueryRequestDto queryRequest)
     {
         try
