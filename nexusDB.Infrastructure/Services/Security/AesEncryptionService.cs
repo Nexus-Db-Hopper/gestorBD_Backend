@@ -1,8 +1,9 @@
+using System;
+using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Configuration;
-using System.Security.Cryptography;
 using nexusDB.Application.Interfaces.Security;
-
 
 namespace nexusDB.Infrastructure.Services.Security;
 
@@ -10,50 +11,48 @@ public class AesEncryptionService : IAesEncryptionService
 {
     private readonly byte[] _key;
     private readonly byte[] _iv;
-    
-    // Agregar al appsettings un "Encrypt":{"Key" = "Clave", "IV" : "clave de Iv")
-    // Ambas tienen que ser de 64 bits y la key es de 32 caracteres y la IV de 16
-    public AesEncryptionService(IConfiguration config)
+
+    public AesEncryptionService(IConfiguration configuration)
     {
-        _key = Convert.FromBase64String(config["Encryption:Key"]);
-        _iv = Convert.FromBase64String(config["Encryption:IV"]);
+        // CORREGIDO: Leer de la sección "Encryption" para coincidir con appsettings.json
+        var key = configuration["Encryption:Key"];
+        var iv = configuration["Encryption:IV"];
+
+        if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(iv))
+        {
+            throw new ArgumentException("AES Key or IV is not configured in appsettings.json under the 'Encryption' section.");
+        }
+
+        _key = Convert.FromBase64String(key);
+        _iv = Convert.FromBase64String(iv);
     }
 
-    
-    // Este metodo permite encriptar la contraseña de la instancia para poder mantenerla segura
-    // No se puede hacer con bcrypt pues despues se tiene que desencriptar para leerla
-    
-public string Encrypt(string plainText)
+    public string Encrypt(string plainText)
     {
         using var aes = Aes.Create();
         aes.Key = _key;
         aes.IV = _iv;
+        var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
 
-        using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
         using var ms = new MemoryStream();
         using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
-        using (var writer = new StreamWriter(cs))
         {
-            writer.Write(plainText);
+            using var sw = new StreamWriter(cs);
+            sw.Write(plainText);
         }
-
         return Convert.ToBase64String(ms.ToArray());
     }
 
-    //Esto desencripta la clave usando las mismas claves
     public string Decrypt(string cipherText)
     {
-        var buffer = Convert.FromBase64String(cipherText);
-
         using var aes = Aes.Create();
         aes.Key = _key;
         aes.IV = _iv;
+        var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
 
-        using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-        using var ms = new MemoryStream(buffer);
+        using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
         using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-        using var reader = new StreamReader(cs);
-
-        return reader.ReadToEnd();
+        using var sr = new StreamReader(cs);
+        return sr.ReadToEnd();
     }
 }

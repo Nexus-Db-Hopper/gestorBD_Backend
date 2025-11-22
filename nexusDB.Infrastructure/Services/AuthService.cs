@@ -78,7 +78,7 @@ public class AuthService : IAuthService
         {
             return Result.Failure<TokenResponseDto>("Invalid credentials.");
         }
-
+        
         var accessToken = _jwtService.GenerateToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
 

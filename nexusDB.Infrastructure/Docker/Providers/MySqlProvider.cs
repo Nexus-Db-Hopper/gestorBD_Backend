@@ -1,112 +1,178 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
-using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using nexusDB.Application.Dtos.Instances;
 using nexusDB.Application.Interfaces.Providers;
 using nexusDB.Domain.Entities;
+using System.Net;
+using System.Net.Sockets;
 using Dapper;
 
 namespace nexusDB.Domain.Docker.Providers;
 
 public class MySqlProvider : IDatabaseProvider
 {
-    private readonly string? _host;
-    private readonly int _port;
-    private readonly string? _adminUser;
-    private readonly string? _adminPassword;
+    private readonly DockerClient _dockerClient;
+    private const string MySqlImage = "mysql";
+    private const string MySqlImageTag = "latest";
 
-    public MySqlProvider(IConfiguration config)
+    public MySqlProvider(DockerClient dockerClient)
     {
-        _host = config["Containers:MySqlHost"];
-        _port = int.Parse(config["Containers:MySqlPort"] ?? string.Empty);
-        _adminUser = config["Containers:MySqlAdminUser"];
-        _adminPassword = config["Containers:MySqlAdminPassword"];
+        _dockerClient = dockerClient;
     }
 
-    // Esto determina a cual Engine pertenece este proveedor (se selecciona en el factory)
     public string Engine => "mysql";
 
-    // Este metodo es para crear el contenedor
     public async Task CreateContainerAsync(Instance instance, string password)
     {
-        var connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword};";
-        using var conn =  new MySqlConnection(connectionString);
-        await conn.OpenAsync();
-        await conn.ExecuteAsync($"CREATE DATABASE `{instance.Name}`;");
-        await conn.ExecuteAsync($"CREATE USER '{instance.Username}'@'%' IDENTIFIED BY '{password}';");
-        await conn.ExecuteAsync($"GRANT ALL PRIVILEGES ON `{instance.Name}`.* TO '{instance.Username}'@'%';");
-        await conn.ExecuteAsync("FLUSH PRIVILEGES");
+        await _dockerClient.Images.CreateImageAsync(
+            new ImagesCreateParameters { FromImage = MySqlImage, Tag = MySqlImageTag },
+            new AuthConfig(),
+            new Progress<JSONMessage>());
+
+        var hostPort = GetFreeTcpPort();
+        instance.HostPort = hostPort;
+
+        var response = await _dockerClient.Containers.CreateContainerAsync(new CreateContainerParameters
+        {
+            Image = $"{MySqlImage}:{MySqlImageTag}",
+            Name = instance.ContainerName,
+            Labels = new Dictionary<string, string>
+            {
+                { "app.owner", "nexusdb" },
+                { "user.id", instance.OwnerUserId.ToString() }
+            },
+            Env = new List<string>
+            {
+                $"MYSQL_ROOT_PASSWORD={Guid.NewGuid()}",
+                $"MYSQL_DATABASE={instance.Name}",
+                $"MYSQL_USER={instance.Username}",
+                $"MYSQL_PASSWORD={password}"
+            },
+            HostConfig = new HostConfig
+            {
+                PortBindings = new Dictionary<string, IList<PortBinding>>
+                {
+                    { "3306/tcp", new List<PortBinding> { new PortBinding { HostPort = hostPort.ToString() } } }
+                },
+                
+                // --- PRODUCTION-READY CHANGES ---
+
+                // 1. Resource Limits: Prevents a single container from consuming all server resources.
+                Memory = 268435456, // 256 MB RAM limit
+                CPUQuota = 50000,   // 50% of one CPU core limit
+
+                // 2. Data Persistence: Maps a folder on the host to the MySQL data folder inside the container.
+                // This ensures data survives container restarts or deletions.
+                Binds = new List<string>
+                {
+                    // IMPORTANT: The host path must be configured on the UPS server.
+                    // For local Windows development, this will create a folder in C:\var\lib\...
+                    // For the Linux-based UPS, it will be /var/lib/...
+                    $"/var/lib/nexusdb-data/{instance.ContainerName}:/var/lib/mysql"
+                }
+                // --- END OF PRODUCTION-READY CHANGES ---
+            }
+        });
+
+        instance.ContainerId = response.ID;
+        
+        await _dockerClient.Containers.StartContainerAsync(instance.ContainerId, null);
+        
+        await WaitForDatabaseReady(hostPort, password, instance);
     }
 
     public async Task StartAsync(Instance instance)
     {
-        string connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword}";
-        using var conn = new MySqlConnection(connectionString);
-        await conn.OpenAsync();
-        string sql = $"ALTER USER `{instance.Username}`@'%' ACCOUNT UNLOCK";
-        using var cmd = new MySqlCommand(sql, conn);
-        await cmd.ExecuteNonQueryAsync();
+        if (string.IsNullOrEmpty(instance.ContainerId)) return;
+        await _dockerClient.Containers.StartContainerAsync(instance.ContainerId, null);
     }
 
     public async Task StopAsync(Instance instance)
     {
-        string connectionString = $"server={_host};port={_port};user={_adminUser};password={_adminPassword}";
-        using var conn = new MySqlConnection(connectionString);
-        await conn.OpenAsync();
-        string sql = $"ALTER USER `{instance.Username}`@'%' ACCOUNT LOCK";
-        using var cmd = new MySqlCommand(sql, conn);
-        await cmd.ExecuteNonQueryAsync();
+        if (string.IsNullOrEmpty(instance.ContainerId)) return;
+        await _dockerClient.Containers.StopContainerAsync(instance.ContainerId, new ContainerStopParameters());
     }
 
     public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
         var queryResult = new QueryResultDto();
+        if (instance.HostPort == 0)
+        {
+            queryResult.Success = false;
+            queryResult.Message = "Instance is not properly configured (missing HostPort).";
+            return queryResult;
+        }
+
+        var connectionString = $"server=localhost;port={instance.HostPort};database={instance.Name};User Id={instance.Username};password={decryptedPassword};";
+        
         try
         {
-            var connectionString =
-                $"server={_host};port={_port};database={instance.Name};User Id={instance.Username};password={decryptedPassword};";
             using var conn = new MySqlConnection(connectionString);
             await conn.OpenAsync();
-            using var cmd = new MySqlCommand(query, conn);
-            bool isSelected = query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase);
-            if (isSelected)
+            
+            bool isSelect = query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase);
+            if (isSelect)
             {
-                using var reader = await cmd.ExecuteReaderAsync();
                 var data = new List<Dictionary<string, object?>>();
+                using var reader = await conn.ExecuteReaderAsync(query);
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object?>();
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        var columnName = reader.GetName(i);
-                        var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                        row[columnName] = value;
+                        row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
                     }
                     data.Add(row);
                 }
-
                 queryResult.Data = data;
                 queryResult.Success = true;
-                queryResult.Message = "Query succesfull";
-                return queryResult;
+                queryResult.Message = "Query executed successfully.";
             }
             else
             {
-                int affected = await cmd.ExecuteNonQueryAsync();
+                var affectedRows = await conn.ExecuteAsync(query);
                 queryResult.Success = true;
-                queryResult.Message = $"Query succesfull, rows affected: {affected}";
-                queryResult.Data = new List<IDictionary<string, object?>>();
-                return queryResult;
+                queryResult.Message = $"Query executed successfully. Rows affected: {affectedRows}";
             }
             
+            return queryResult;
         }
         catch (Exception e)
         {
             queryResult.Success = false;
             queryResult.Message = $"Query error: {e.Message}";
-            queryResult.Data = null;
             return queryResult;
         }
+    }
+
+    private static int GetFreeTcpPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    private async Task WaitForDatabaseReady(int port, string password, Instance instance)
+    {
+        var connectionString = $"server=localhost;port={port};database={instance.Name};User Id={instance.Username};password={password};";
+        var attempts = 0;
+        while (attempts < 30)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(connectionString);
+                await conn.OpenAsync();
+                return;
+            }
+            catch (MySqlException)
+            {
+                attempts++;
+                await Task.Delay(2000);
+            }
+        }
+        throw new Exception("Could not connect to the new database instance within the timeout period.");
     }
 }
