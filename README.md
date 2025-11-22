@@ -37,7 +37,7 @@ Esta sección explica cómo asegurar que tu base de datos local esté sincroniza
 Puedes probar tu conexión a la base de datos compartida usando el siguiente comando en una terminal (CMD o PowerShell). Se te pedirá la contraseña de forma interactiva y segura.
 
 ```sh
-mysql --user avnadmin -p --host basedatos-riwi-projects-dv.f.aivencloud.com --port 21345 --database nexusDB
+mysql --user avnadmin -p --host elconectorhost.example.com --port tupuerto --database elnombre
 ```
 
 **Paso 2.2: Instalar Herramientas de EF Core**
