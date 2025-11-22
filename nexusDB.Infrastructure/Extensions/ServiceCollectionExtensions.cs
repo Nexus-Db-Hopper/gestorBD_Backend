@@ -45,7 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInstanceRepository, InstanceRepository>();
         services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
         services.AddSingleton<IAesEncryptionService, AesEncryptionService>();
-        
+
         // Register Database Providers
         services.AddScoped<IDatabaseProvider, MySqlProvider>();
         
