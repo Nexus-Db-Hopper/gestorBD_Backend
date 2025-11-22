@@ -20,6 +20,7 @@ public class User
     public string Password { get; set; } = null!; 
 
     [ForeignKey("Role")]
+    [Column("RoleId")]
     public int IdRole { get; private set; }
     public Role Role { get; private set; } = null!;
 
