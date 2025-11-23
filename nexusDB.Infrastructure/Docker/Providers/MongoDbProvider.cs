@@ -78,11 +78,7 @@ public class MongoDbProvider : IDatabaseProvider
                         new PortBinding { HostPort = instance.Port }
                     }
                 },
-
-                // // Persistencia si tiene volumen asignado
-                // Binds = !string.IsNullOrWhiteSpace(instance.VolumeName)
-                //     ? new List<string> { $"{instance.VolumeName}:/data/db" }
-                //     : null
+                
             }
         };
 
