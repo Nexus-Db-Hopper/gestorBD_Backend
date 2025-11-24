@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDatabaseProvider, MySqlProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
         services.AddSingleton<IDatabaseProvider, SqlServerProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
         services.AddSingleton<IDatabaseProvider, RedisProvider>();
+        services.AddScoped<IDatabaseProvider, MongoDbProvider>();
 
         return services;
     }

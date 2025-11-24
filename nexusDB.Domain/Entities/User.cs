@@ -20,7 +20,7 @@ public class User
     public string Password { get; set; } = null!; 
 
     [ForeignKey("Role")]
-    public int IdRole { get; private set; }
+    public int RoleId { get; private set; }
     public Role Role { get; private set; } = null!;
 
     public string? RefreshToken { get; set; }
@@ -35,7 +35,7 @@ public class User
         LastName = lastName;
         Email = email;
         Password = password;
-        IdRole = idRole;
+        RoleId = idRole;
     }
 
     /// <summary>
