@@ -1,19 +1,14 @@
 using Microsoft.EntityFrameworkCore;
-using nexusDB.Application.Common;
 using nexusDB.Application.Dtos;
 using nexusDB.Application.Interfaces;
 using nexusDB.Domain.Entities;
+using nexusDB.Domain.VOs;
 using nexusDB.Infrastructure.Data;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using nexusDB.Domain.SeedWork;
+
 
 namespace nexusDB.Infrastructure.Services;
 
-/// <summary>
-/// Implementación concreta del servicio de autenticación.
-/// Contiene la lógica de negocio y la interacción con la capa de datos.
-/// </summary>
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
@@ -27,25 +22,36 @@ public class AuthService : IAuthService
 
     public async Task<Result> RegisterUserAsync(RegisterUserDto registerDto)
     {
-        if (await _context.Users.AnyAsync(u => u.Email == registerDto.Email))
-        {
-            return Result.Failure("User with this email already exists.");
-        }
-
         var defaultRole = await _context.Roles.SingleOrDefaultAsync(r => r.SpecificRole == "User");
         if (defaultRole == null)
         {
             return Result.Failure("Default user role not found. System configuration error.");
         }
 
-        var user = new User
+        var userResult = User.Create(
+            registerDto.Name,
+            registerDto.LastName,
+            registerDto.Email,
+            registerDto.Password,
+            defaultRole.Id
+        );
+
+        if (userResult.IsFailure)
         {
-            Email = registerDto.Email,
-            Password = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-            Name = registerDto.Name,
-            LastName = registerDto.LastName,
-            IdRole = defaultRole.Id
-        };
+            return Result.Failure(userResult.Error!);
+        }
+
+        // --- CORRECCIÓN DE LA CONSULTA LINQ ---
+        // ANTES: Se intentaba acceder a u.Email.Value, lo cual EF Core no puede traducir.
+        // AHORA: Se compara directamente el objeto Email. EF Core usará el ValueConverter para traducir esto a una comparación de strings en SQL.
+        var emailToCheck = userResult.Value!.Email;
+        if (await _context.Users.AnyAsync(u => u.Email == emailToCheck))
+        {
+            return Result.Failure("User with this email already exists.");
+        }
+
+        var user = userResult.Value!;
+        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
@@ -55,7 +61,18 @@ public class AuthService : IAuthService
 
     public async Task<Result<TokenResponseDto>> LoginUserAsync(LoginUserDto loginDto)
     {
-        var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+        // --- CORRECCIÓN DE LA CONSULTA LINQ ---
+        // Creamos una instancia del Value Object Email para usarla en la consulta.
+        var emailToFindResult = Email.Create(loginDto.Email);
+        if (emailToFindResult.IsFailure)
+        {
+            // Si el formato del email es inválido, no puede existir en la BD.
+            return Result.Failure<TokenResponseDto>("Invalid credentials.");
+        }
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email == emailToFindResult.Value); // Comparamos directamente el objeto Email.
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
         {
@@ -73,6 +90,7 @@ public class AuthService : IAuthService
         return Result.Success(tokens);
     }
 
+    // ... (el resto de los métodos no necesitan cambios)
     public async Task<Result<TokenResponseDto>> RefreshTokenAsync(string refreshToken)
     {
         var usersWithTokens = await _context.Users

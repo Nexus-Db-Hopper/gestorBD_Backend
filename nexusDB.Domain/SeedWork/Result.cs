@@ -1,6 +1,6 @@
 using System;
 
-namespace nexusDB.Application.Common;
+namespace nexusDB.Domain.SeedWork;
 
 /// <summary>
 /// Clase base para encapsular el resultado de una operación, siguiendo las mejores prácticas.
