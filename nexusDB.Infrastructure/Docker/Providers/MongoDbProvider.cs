@@ -1,109 +1,133 @@
-using Docker.DotNet;
-using Docker.DotNet.Models;
-using nexusDB.Domain.Entities;
+using Microsoft.Extensions.Configuration;
+using MongoDB.Bson;
+using nexusDB.Application.Dtos.Instances;
 using nexusDB.Application.Interfaces.Providers;
+using nexusDB.Domain.Entities;
+using MongoDB.Driver;
 
 namespace nexusDB.Domain.Docker.Providers;
-
 public class MongoDbProvider : IDatabaseProvider
 {
-    private readonly DockerClient _docker;
+    private readonly string? _host;
+    private readonly int _port;
+    private readonly string? _adminUser;
+    private readonly string? _adminPassword;
+
+    public MongoDbProvider(IConfiguration config)
+    {
+        _host = config["Containers:MongoHost"];
+        _port = int.Parse(config["Containers:MongoPort"] ?? "27017");
+        _adminUser = config["Containers:MongoAdminUser"];
+        _adminPassword = config["Containers:MongoAdminPassword"];
+    }
 
     public string Engine => "mongodb";
-    
-    public MongoDbProvider()
+
+    // crear instancia 
+    public async Task CreateContainerAsync(Instance instance, string password)
     {
-        // Detectar sistema operativo para usar el docker.sock correcto
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-        {
-            _docker = new DockerClientConfiguration(
-                new Uri("npipe://./pipe/docker_engine")
-            ).CreateClient();
-        }
-        else
-        {
-            _docker = new DockerClientConfiguration(
-                new Uri("unix:///var/run/docker.sock")
-            ).CreateClient();
-        }
-    }
-
-    // Este proveedor corresponde al engine "mongodb"
-   
-
-    /// <summary>
-    /// Crea un contenedor MongoDB usando la instancia ya validada.
-    /// </summary>
-    /// <param name="instance">Instancia con configuraciones pre-validadas.</param>
-    /// <param name="rootPassword">Password real del root admin (NO hash).</param>
-    /// <param name="userPassword">Password real del usuario normal (NO hash).</param>
-    /// <returns>Devuelve el ID del contenedor creado.</returns>
-    ///
-    ///
-    
-    public async Task<string> CreateContainerAsync(Instance instance, string userPassword, string rootPassword)
-    {
-        Console.WriteLine("Entró a crear contenedor MongoDB");
-
-        // 1. Descargar la imagen de Mongo si no existe
-        await _docker.Images.CreateImageAsync(
-            new ImagesCreateParameters
-            {
-                FromImage = "mongo",
-                Tag = "latest"
-            },
-            null,
-            new Progress<JSONMessage>()
+        // Conexion del admin
+        var adminClient = new MongoClient(
+            $"mongodb://{_adminUser}:{_adminPassword}@{_host}:{_port}/admin"
         );
 
-        // 2. Crear parámetros del contenedor
-        var createParams = new CreateContainerParameters
+        var adminDb = adminClient.GetDatabase("admin");
+
+        // 1) Crear base de datos (Mongo la crea automáticamente al insertar algo)
+        var newDb = adminClient.GetDatabase(instance.Name);
+        await newDb.CreateCollectionAsync("init"); // fuerza creación
+        await newDb.DropCollectionAsync("init");
+
+        // 2) Crear usuario con rol dbOwner en esa base de datos
+        var createUserCmd = new BsonDocument
         {
-            Image = $"mongo:latest",
-            Name = instance.Name,
-
-            Env = new List<string>
-            {
-                $"MONGO_INITDB_ROOT_USERNAME={instance.Username}",
-                $"MONGO_INITDB_ROOT_PASSWORD={rootPassword}"
-            },
-
-            // MongoDB usa por defecto 27017
-            HostConfig = new HostConfig
-            {
-                PortBindings = new Dictionary<string, IList<PortBinding>>
-                {
-                    ["27017/tcp"] = new List<PortBinding>
-                    {
-                        new PortBinding { HostPort = instance.Port }
-                    }
-                },
-                
-            }
+            { "createUser", instance.Username },
+            { "pwd", password },
+            { "roles", new BsonArray {
+                new BsonDocument {
+                    { "role", "dbOwner" },
+                    { "db", instance.Name }
+                }
+            }}
         };
 
-        // 3. Crear contenedor
-        var result = await _docker.Containers.CreateContainerAsync(createParams);
-        var containerId = result.ID;
-
-        // 4. Iniciar contenedor
-        await _docker.Containers.StartContainerAsync(containerId, null);
-
-        return containerId;
+        await adminDb.RunCommandAsync<BsonDocument>(createUserCmd);
     }
 
-    public Task StartAsync(Instance instance)
+    // activar un usuario o ponnerlo en modo start
+    public async Task StartAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        var adminClient = new MongoClient(
+            $"mongodb://{_adminUser}:{_adminPassword}@{_host}:{_port}/admin"
+        );
+
+        var adminDb = adminClient.GetDatabase("admin");
+
+        var cmd = new BsonDocument
+        {
+            { "updateUser", instance.Username },
+            { "roles", new BsonArray {
+                new BsonDocument { { "role", "dbOwner" }, { "db", instance.Name } }
+            }}
+        };
+
+        await adminDb.RunCommandAsync<BsonDocument>(cmd);
     }
 
-    public Task StopAsync(Instance instance)
+    
+    // desarctvar usuario o ponerlo en modo stop 
+    public async Task StopAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        var adminClient = new MongoClient(
+            $"mongodb://{_adminUser}:{_adminPassword}@{_host}:{_port}/admin"
+        );
+
+        var adminDb = adminClient.GetDatabase("admin");
+
+        var cmd = new BsonDocument
+        {
+            { "updateUser", instance.Username },
+            { "roles", new BsonArray() } // sin roles → sin permisos
+        };
+
+        await adminDb.RunCommandAsync<BsonDocument>(cmd);
     }
 
-    public Task<string> ExecuteQueryAsync(Instance instance, string query)
+    
+    // ejecuta query 
+    public async Task<QueryResultDto> ExecuteQueryAsync(
+        Instance instance,
+        string query,
+        string decryptedPassword)
     {
-        throw new NotImplementedException();
+        var result = new QueryResultDto();
+        try
+        {
+            var client = new MongoClient(
+                $"mongodb://{instance.Username}:{decryptedPassword}@{_host}:{_port}/{instance.Name}"
+            );
+
+            var db = client.GetDatabase(instance.Name);
+
+            // Interpretar query como un comando de MongoDB (JSON)
+            var cmd = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(query);
+
+            var response = await db.RunCommandAsync<BsonDocument>(cmd);
+
+            result.Success = true;
+            result.Data = new List<Dictionary<string, object?>>
+            {
+                response.ToDictionary()
+            };
+            result.Message = "Command executed successfully";
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = $"Query error: {ex.Message}";
+            return result;
+        }
     }
 }
