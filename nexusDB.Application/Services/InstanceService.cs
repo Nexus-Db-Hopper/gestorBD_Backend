@@ -82,4 +82,32 @@ public class InstanceService : IInstanceService
     {
         return await _instanceRepository.GetAllAsync();
     }
+
+    // Implementación de StartInstanceAsync
+    public async Task StartInstanceAsync(int instanceId)
+    {
+        var instance = await _instanceRepository.GetByIdAsync(instanceId);
+        if (instance == null) throw new KeyNotFoundException("Instance not found");
+
+        var provider = _databaseProviderFactory.GetProvider(instance.Engine);
+        if (provider == null) throw new ArgumentException($"Engine {instance.Engine} not supported");
+
+        await provider.StartAsync(instance);
+        instance.State = InstanceState.Active;
+        await _instanceRepository.UpdateAsync(instance);
+    }
+
+    // Implementación de StopInstanceAsync
+    public async Task StopInstanceAsync(int instanceId)
+    {
+        var instance = await _instanceRepository.GetByIdAsync(instanceId);
+        if (instance == null) throw new KeyNotFoundException("Instance not found");
+
+        var provider = _databaseProviderFactory.GetProvider(instance.Engine);
+        if (provider == null) throw new ArgumentException($"Engine {instance.Engine} not supported");
+
+        await provider.StopAsync(instance);
+        instance.State = InstanceState.Suspended;
+        await _instanceRepository.UpdateAsync(instance);
+    }
 }

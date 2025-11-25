@@ -35,4 +35,10 @@ public class InstanceRepository : IInstanceRepository
     {
         return await _dbContext.Instances.Where(i => i.State != InstanceState.Deleted).ToListAsync();
     }
+
+    // Implementation of GetByIdAsync
+    public async Task<Instance?> GetByIdAsync(int id)
+    {
+        return await _dbContext.Instances.FindAsync(id);
+    }
 }

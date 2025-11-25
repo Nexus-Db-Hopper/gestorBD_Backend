@@ -8,4 +8,7 @@ public interface IInstanceRepository
     Task<Instance?> GetByOwnerIdAsync(int id);
     Task UpdateAsync(Instance instance);
     Task<IEnumerable<Instance>> GetAllAsync();
+    
+    // Added this method to the interface
+    Task<Instance?> GetByIdAsync(int id);
 }

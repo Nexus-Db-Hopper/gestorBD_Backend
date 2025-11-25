@@ -9,4 +9,8 @@ public interface IInstanceService
     Task<QueryResultDto> ExecuteUserQueryAsync(int ownerUserId, string query);
     Task<Instance?> GetInstanceByOwnerIdAsync(int ownerUserId);
     Task<IEnumerable<Instance>> GetAllInstancesAsync();
+    
+    // Added these methods to the interface
+    Task StartInstanceAsync(int instanceId);
+    Task StopInstanceAsync(int instanceId);
 }

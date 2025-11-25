@@ -1,10 +1,9 @@
-﻿using System.Data;
-using System.Data.SqlClient;
+﻿using System.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using nexusDB.Application.Dtos.Instances;
 using nexusDB.Application.Interfaces.Providers;
 using nexusDB.Domain.Entities;
-// IMPORTANTE INSTAlAR COMO NUGET: System.Data.SqlClient
+
 namespace nexusDB.Domain.Docker.Providers;
 
 public class SqlServerProvider : IDatabaseProvider
@@ -24,9 +23,6 @@ public class SqlServerProvider : IDatabaseProvider
 
     public string Engine => "sqlserver";
 
-    // --------------------------------------------------
-    // 🔹 CREA UNA INSTANCIA DE BASE DE DATOS PARA UN ESTUDIANTE
-    // --------------------------------------------------
     public async Task CreateContainerAsync(Instance instance, string password)
     {
         var connectionString = $"Server={_host},{_port};User Id={_adminUser};Password={_adminPassword};Encrypt=False;";
@@ -41,7 +37,7 @@ public class SqlServerProvider : IDatabaseProvider
         }
 
         // Crear login en el servidor
-        using (var cmd = new SqlCommand($"CREATE LOGIN [{instance.Username}] WITH PASSWORD = '{password}';", conn))
+        using (var cmd = new SqlCommand($"CREATE LOGIN [{instance.Username}] WITH PASSWORD = '{password}'; ", conn))
         {
             await cmd.ExecuteNonQueryAsync();
         }
@@ -61,19 +57,30 @@ public class SqlServerProvider : IDatabaseProvider
         }
     }
 
-    public Task StartAsync(Instance instance)
+    /// <summary>
+    /// Enables the SQL Server login associated with the instance.
+    /// </summary>
+    public async Task StartAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        var connectionString = $"Server={_host},{_port};User Id={_adminUser};Password={_adminPassword};Encrypt=False;";
+        using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync();
+        using var cmd = new SqlCommand($"ALTER LOGIN [{instance.Username}] ENABLE;", conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
-    public Task StopAsync(Instance instance)
+    /// <summary>
+    /// Disables the SQL Server login associated with the instance.
+    /// </summary>
+    public async Task StopAsync(Instance instance)
     {
-        throw new NotImplementedException();
+        var connectionString = $"Server={_host},{_port};User Id={_adminUser};Password={_adminPassword};Encrypt=False;";
+        using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync();
+        using var cmd = new SqlCommand($"ALTER LOGIN [{instance.Username}] DISABLE;", conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
-    // --------------------------------------------------
-    // 🔹 EJECUTAR CONSULTAS PARA UN ESTUDIANTE
-    // --------------------------------------------------
     public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
         var result = new QueryResultDto();
@@ -88,11 +95,15 @@ public class SqlServerProvider : IDatabaseProvider
 
             using var cmd = new SqlCommand(query, conn);
 
-            // Si es SELECT
-            if (query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            // Identify queries that return tabular results (SELECT, DESCRIBE, SHOW)
+            bool returnsTabularData = query.Trim().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) ||
+                                      query.Trim().StartsWith("DESCRIBE", StringComparison.OrdinalIgnoreCase) || // DESCRIBE is MySQL specific, but might be used
+                                      query.Trim().StartsWith("SHOW", StringComparison.OrdinalIgnoreCase); // SHOW is MySQL specific, but might be used
+
+            if (returnsTabularData)
             {
-                using var reader = await cmd.ExecuteReaderAsync();
                 var data = new List<Dictionary<string, object?>>();
+                using var reader = await cmd.ExecuteReaderAsync();
 
                 while (await reader.ReadAsync())
                 {

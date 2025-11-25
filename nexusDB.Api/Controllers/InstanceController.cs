@@ -126,4 +126,51 @@ public class InstanceController : ControllerBase
         }
         return Ok(instance);
     }
+
+    // --- Reintegrated Endpoints for Start/Stop Instance ---
+    [HttpPut("{id}/start")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StartInstance(int id)
+    {
+        try
+        {
+           await _instanceService.StartInstanceAsync(id);
+           return Ok(new { message = "Instance access enabled (user account unlocked)." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception e)
+        {
+            return StatusCode(500, $"Error enabling instance access: {e.Message}");
+        }
+    }
+    
+    [HttpPut("{id}/stop")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> StopInstance(int id)
+    {
+        try
+        {
+            await _instanceService.StopInstanceAsync(id);
+            return Ok(new { message = "Instance access disabled (user account locked)." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception e)
+        {
+            return StatusCode(500, $"Error disabling instance access: {e.Message}");
+        }
+    }
 }

@@ -28,9 +28,9 @@ public class RedisProvider : IDatabaseProvider
     // Identificador para el factory
     public string Engine => "redis";
 
-    // ======================================================================
+    // ====================================================================================================
     // 🔹 Crear "instancia lógica" para un usuario en Redis
-    // ======================================================================
+    // ====================================================================================================
     public async Task CreateContainerAsync(Instance instance, string password)
     {
         // En Redis NO creamos bases de datos ni usuarios.
@@ -48,11 +48,13 @@ public class RedisProvider : IDatabaseProvider
         await db.StringSetAsync(key, 
             $"Instance for user {instance.Username} created at {DateTime.UtcNow}"
         );
+        // Set initial state to ACTIVE
+        await db.StringSetAsync($"{instance.Name}:_state", "ACTIVE");
     }
 
-    // ======================================================================
+    // ====================================================================================================
     // 🔹 "Start": desbloquear la instancia (Redis no lo soporta → simulación)
-    // ======================================================================
+    // ====================================================================================================
     public async Task StartAsync(Instance instance)
     {
         var conn = await ConnectionMultiplexer.ConnectAsync(
@@ -63,10 +65,10 @@ public class RedisProvider : IDatabaseProvider
         await db.StringSetAsync($"{instance.Name}:_state", "ACTIVE");
     }
 
-    // ======================================================================
+    // ====================================================================================================
     // 🔹 "Stop": bloquear la instancia 
     // (En Redis lo simulamos marcando un flag)
-    // ======================================================================
+    // ====================================================================================================
     public async Task StopAsync(Instance instance)
     {
         var conn = await ConnectionMultiplexer.ConnectAsync(
@@ -77,9 +79,9 @@ public class RedisProvider : IDatabaseProvider
         await db.StringSetAsync($"{instance.Name}:_state", "STOPPED");
     }
 
-    // ======================================================================
+    // ====================================================================================================
     // 🔹 Ejecutar Comandos Redis
-    // ======================================================================
+    // ====================================================================================================
     public async Task<QueryResultDto> ExecuteQueryAsync(Instance instance, string query, string decryptedPassword)
     {
         var result = new QueryResultDto();
@@ -92,6 +94,15 @@ public class RedisProvider : IDatabaseProvider
             );
 
             var db = conn.GetDatabase();
+
+            // Check instance state
+            var state = await db.StringGetAsync($"{instance.Name}:_state");
+            if (state == "STOPPED")
+            {
+                result.Success = false;
+                result.Message = "Instance is currently stopped. Access denied.";
+                return result;
+            }
 
             // Comando raw estilo redis-cli
             // Ej: "SET key value", "GET key", "HGETALL objeto"
