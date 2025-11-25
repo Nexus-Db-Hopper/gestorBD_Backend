@@ -4,12 +4,6 @@
     <ProjectReference Include="..\nexusDB.Domain\nexusDB.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="Docker.DotNet">
-      <HintPath>..\..\..\..\..\..\..\home\doc4am\.nuget\packages\docker.dotnet\3.125.15\lib\netstandard2.1\Docker.DotNet.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

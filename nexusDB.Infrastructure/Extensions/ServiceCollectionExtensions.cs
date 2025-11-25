@@ -5,12 +5,12 @@ using nexusDB.Application.Interfaces;
 using nexusDB.Application.Interfaces.Providers;
 using nexusDB.Application.Interfaces.Repositories;
 using nexusDB.Application.Interfaces.Security;
-using nexusDB.Domain.Docker;
 using nexusDB.Domain.Docker.Providers;
 using nexusDB.Infrastructure.Data;
 using nexusDB.Infrastructure.Repositories;
 using nexusDB.Infrastructure.Services;
 using nexusDB.Infrastructure.Services.Security;
+using nexusDB.Domain.Docker; // Added this using directive
 
 namespace nexusDB.Infrastructure.Extensions;
 
@@ -30,17 +30,24 @@ public static class ServiceCollectionExtensions
                 ServerVersion.AutoDetect(conn))
         );
 
-        // Registrar los servicios de infraestructura
+        // Register Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IInstanceRepository, InstanceRepository>();
         services.AddScoped<IDatabaseProviderFactory, DatabaseProviderFactory>();
         services.AddSingleton<IAesEncryptionService, AesEncryptionService>();
-        services.AddSingleton<IDatabaseProvider, MySqlProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
-        services.AddSingleton<IDatabaseProvider, SqlServerProvider>();      // Supuestamente este se elimina ya que el DatabaseProviderFactory permite que el cliente decida cual motor desea. REVISAR
-        services.AddSingleton<IDatabaseProvider, RedisProvider>();
+        
+        // Register Database Providers (Fully integrated from both branches)
+        // Relational providers (typically Scoped)
+        services.AddScoped<IDatabaseProvider, MySqlProvider>();
+        services.AddScoped<IDatabaseProvider, PostgresProvider>(); 
+        services.AddScoped<IDatabaseProvider, SqlServerProvider>(); 
 
+        // NoSQL/Cache providers (often Singleton for connection pooling)
+        services.AddSingleton<IDatabaseProvider, RedisProvider>();     
+        services.AddSingleton<IDatabaseProvider, MongoDbProvider>();   
+        
         return services;
     }
 }

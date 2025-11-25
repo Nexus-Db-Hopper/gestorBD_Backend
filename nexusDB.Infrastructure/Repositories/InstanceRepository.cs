@@ -30,4 +30,15 @@ public class InstanceRepository : IInstanceRepository
         _dbContext.Instances.Update(instance);
         await _dbContext.SaveChangesAsync();
     }
+
+    public async Task<IEnumerable<Instance>> GetAllAsync()
+    {
+        return await _dbContext.Instances.Where(i => i.State != InstanceState.Deleted).ToListAsync();
+    }
+
+    // Implementation of GetByIdAsync
+    public async Task<Instance?> GetByIdAsync(int id)
+    {
+        return await _dbContext.Instances.FindAsync(id);
+    }
 }

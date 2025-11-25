@@ -20,7 +20,8 @@ public class User
     public string Password { get; set; } = null!; 
 
     [ForeignKey("Role")]
-    public int IdRole { get; private set; }
+    [Column("RoleId")] // Mapea la propiedad IdRole a la columna RoleId en la DB
+    public int IdRole { get; private set; } // Usamos IdRole como en develop
     public Role Role { get; private set; } = null!;
 
     public string? RefreshToken { get; set; }
@@ -35,7 +36,7 @@ public class User
         LastName = lastName;
         Email = email;
         Password = password;
-        IdRole = idRole;
+        IdRole = idRole; // Usamos IdRole aquí también
     }
 
     /// <summary>
