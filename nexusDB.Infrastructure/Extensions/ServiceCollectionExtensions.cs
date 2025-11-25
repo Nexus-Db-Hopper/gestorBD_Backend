@@ -42,11 +42,11 @@ public static class ServiceCollectionExtensions
         // Relational providers (typically Scoped)
         services.AddScoped<IDatabaseProvider, MySqlProvider>();
         services.AddScoped<IDatabaseProvider, PostgresProvider>(); 
-        services.AddScoped<IDatabaseProvider, SqlServerProvider>(); 
+        // services.AddScoped<IDatabaseProvider, SqlServerProvider>(); // Temporarily disabled for production deployment without Aiven SQL Server
 
         // NoSQL/Cache providers (often Singleton for connection pooling)
-        services.AddSingleton<IDatabaseProvider, RedisProvider>();     
-        services.AddSingleton<IDatabaseProvider, MongoDbProvider>();   
+        // services.AddSingleton<IDatabaseProvider, RedisProvider>();     // Temporarily disabled for production deployment without Aiven Redis
+        // services.AddSingleton<IDatabaseProvider, MongoDbProvider>();   // Temporarily disabled for production deployment without Aiven MongoDb
         
         return services;
     }
