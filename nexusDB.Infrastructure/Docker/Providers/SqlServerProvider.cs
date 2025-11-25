@@ -16,9 +16,14 @@ public class SqlServerProvider : IDatabaseProvider
     public SqlServerProvider(IConfiguration config)
     {
         _host = config["Containers:SqlServerHost"];
-        _port = int.Parse(config["Containers:SqlServerPort"] ?? string.Empty);
+        var sqlServerPort = config["Containers:SqlServerPort"];
         _adminUser = config["Containers:SqlServerAdminUser"];
         _adminPassword = config["Containers:SqlServerAdminPassword"];
+
+        if (string.IsNullOrEmpty(_host) || string.IsNullOrEmpty(sqlServerPort) || !int.TryParse(sqlServerPort, out _port) || string.IsNullOrEmpty(_adminUser) || string.IsNullOrEmpty(_adminPassword))
+        {
+            throw new InvalidOperationException("Main SQL Server connection details are missing or invalid in configuration (Containers section). Ensure SqlServerHost, SqlServerPort, SqlServerAdminUser, and SqlServerAdminPassword are set.");
+        }
     }
 
     public string Engine => "sqlserver";
