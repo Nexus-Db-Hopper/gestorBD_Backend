@@ -20,18 +20,36 @@ var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURACIÓN DE SERVICIOS ---
 
-// 1. Política de CORS (FINAL)
+// 1. Política de CORS (FINAL Y ROBUSTA)
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins, policy =>
     {
-        policy.WithOrigins(
-            "http://localhost:5173", // Desarrollo local del frontend
-            "https://nexusdb-onemore-387ekf1bk-mylisuthys-projects.vercel.app" // Frontend en producción (Vercel)
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod();
+        policy.WithOrigins("http://localhost:5173") // Desarrollo local del frontend
+              .SetIsOriginAllowedToAllowWildcardSubdomains() // Permite subdominios para los orígenes configurados con wildcard
+              .SetIsOriginAllowed(origin =>
+              {
+                  // Permite localhost:5173
+                  if (origin == "http://localhost:5173")
+                  {
+                      return true;
+                  }
+                  // Permite cualquier subdominio de vercel.app
+                  if (origin.StartsWith("https://") && origin.EndsWith(".vercel.app"))
+                  {
+                      return true;
+                  }
+                  // Permite un dominio personalizado futuro (ejemplo)
+                  // if (origin == "https://your-custom-frontend-domain.com")
+                  // {
+                  //     return true;
+                  // }
+                  return false;
+              })
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Importante para JWT con cookies o headers de auth
     });
 });
 
