@@ -20,7 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURACIÓN DE SERVICIOS ---
 
-// 1. Política de CORS (CORRECTED)
+// 1. Política de CORS (FINAL)
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
@@ -28,7 +28,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:5173", // Desarrollo local del frontend
-            "https://your-frontend-domain.vercel.app" // URL de producción del frontend (placeholder)
+            "https://nexusdb-onemore-387ekf1bk-mylisuthys-projects.vercel.app" // Frontend en producción (Vercel)
         )
         .AllowAnyHeader()
         .AllowAnyMethod();
