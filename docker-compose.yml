@@ -1,0 +1,102 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_srv
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: nexusdb
+      MYSQL_USER: nexus
+      MYSQL_PASSWORD: nexus123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - backend_net
+
+  postgres:
+    image: postgres:16
+    container_name: postgres_srv
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus123
+      POSTGRES_DB: nexusdb
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - backend_net
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb_srv
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nexus
+      MONGO_INITDB_ROOT_PASSWORD: nexus123
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - backend_net
+
+  redis:
+    image: redis:7
+    container_name: redis_srv
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - backend_net
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_srv
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "StrongPassw0rd!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    networks:
+      - backend_net
+
+  nexus_api:
+    build:
+      context: ./publish
+      dockerfile: ../Dockerfile
+    container_name: nexus_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Conexiones internas
+      MySqlConnection: "Server=mysql;Database=nexusdb;User=nexus;Password=nexus123;"
+      PgConnection: "Host=postgres;Database=nexusdb;Username=nexus;Password=nexus123;"
+      MongoConnection: "mongodb://nexus:nexus123@mongodb:27017/"
+      RedisConnection: "redis:6379"
+      SqlServerConnection: "Server=sqlserver;Database=nexusdb;User=sa;Password=StrongPassw0rd!;"
+    depends_on:
+      - mysql
+      - postgres
+      - mongodb
+      - redis
+      - sqlserver
+    ports:
+      - "8080:8080"
+    networks:
+      - backend_net
+
+networks:
+  backend_net:
+
+volumes:
+  mysql_data:
+  pg_data:
+  mongo_data:
+  mssql_data:
