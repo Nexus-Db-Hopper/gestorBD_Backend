@@ -108,12 +108,14 @@ else
 
 app.UseHttpsRedirection();
 
-// Use CORS before Authentication/Authorization
-app.UseCors(MyAllowSpecificOrigins);
+// CORRECTED CORS ORDER: UseRouting -> UseCors -> UseAuthentication -> UseAuthorization -> MapControllers
+app.UseRouting(); // Must be before UseCors
+
+app.UseCors(MyAllowSpecificOrigins); // Apply CORS policy
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapControllers(); // Implies UseEndpoints
 
 app.Run();
