@@ -8,8 +8,8 @@ COPY ["nexusDB.Api/nexusDB.Api.csproj", "nexusDB.Api/"]
 COPY ["nexusDB.Application/nexusDB.Application.csproj", "nexusDB.Application/"]
 COPY ["nexusDB.Domain/nexusDB.Domain.csproj", "nexusDB.Domain/"]
 COPY ["nexusDB.Infrastructure/nexusDB.Infrastructure.csproj", "nexusDB.Infrastructure/"]
-# Use a more explicit COPY command for Directory.Packages.props
-COPY Directory.Packages.props ./ # Copy Directory.Packages.props for CPM
+# Use a more explicit COPY command for Directory.Packages.props, specifying the filename in the destination
+COPY Directory.Packages.props ./Directory.Packages.props # Copy Directory.Packages.props for CPM
 
 RUN dotnet restore "nexusDB.sln"
 
