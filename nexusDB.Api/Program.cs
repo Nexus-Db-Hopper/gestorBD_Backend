@@ -20,13 +20,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURACIÓN DE SERVICIOS ---
 
-// 1. Política de CORS
+// 1. Política de CORS (CORRECTED)
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins, policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(
+            "http://localhost:5173", // Desarrollo local del frontend
+            "https://your-frontend-domain.vercel.app" // URL de producción del frontend (placeholder)
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod();
     });
 });
 
@@ -102,6 +107,8 @@ else
 }
 
 app.UseHttpsRedirection();
+
+// Use CORS before Authentication/Authorization
 app.UseCors(MyAllowSpecificOrigins);
 
 app.UseAuthentication();
