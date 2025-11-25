@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides; // Added for ForwardedHeaders
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using nexusDB.Application.Configuration;
@@ -53,9 +54,6 @@ builder.Services.AddSwaggerGen(options =>
 // Application
 builder.Services.AddScoped<IInstanceService, InstanceService>();
 
-
-
-
 // 5. Autenticación JWT
 builder.Services.AddAuthentication(options =>
     {
@@ -74,19 +72,33 @@ builder.Services.AddAuthentication(options =>
             ValidIssuer = jwtSettings.Issuer,
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-            // MEJORA: Validar el tiempo de vida del token con un margen de cero.
             ClockSkew = TimeSpan.Zero
         };
     });
 
-
 // --- CONFIGURACIÓN DEL PIPELINE HTTP ---
 var app = builder.Build();
+
+// Configure Forwarded Headers Middleware
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+else
+{
+    // Enable Swagger in production for the pitch
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "nexusDB.Api v1");
+        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    });
 }
 
 app.UseHttpsRedirection();
