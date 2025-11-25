@@ -4,7 +4,11 @@ namespace nexusDB.Application.Interfaces.Repositories;
 
 public interface IInstanceRepository
 {
-    public Task<Instance> AddAsync(Instance instance);
-    public Task<Instance?> GetByOwnerIdAsync(int id);
-    public Task UpdateAsync(Instance instance);
+    Task<Instance> AddAsync(Instance instance);
+    Task<Instance?> GetByOwnerIdAsync(int id);
+    Task UpdateAsync(Instance instance);
+    Task<IEnumerable<Instance>> GetAllAsync();
+    
+    // Added this method to the interface
+    Task<Instance?> GetByIdAsync(int id);
 }

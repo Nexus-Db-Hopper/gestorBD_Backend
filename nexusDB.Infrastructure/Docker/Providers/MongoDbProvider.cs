@@ -48,7 +48,8 @@ public class MongoDbProvider : IDatabaseProvider
                     { "role", "dbOwner" },
                     { "db", instance.Name }
                 }
-            }}
+            }},
+            { "customData", new BsonDocument { { "state", "ACTIVE" } } } // Initial state
         };
 
         await adminDb.RunCommandAsync<BsonDocument>(createUserCmd);
@@ -68,7 +69,8 @@ public class MongoDbProvider : IDatabaseProvider
             { "updateUser", instance.Username },
             { "roles", new BsonArray {
                 new BsonDocument { { "role", "dbOwner" }, { "db", instance.Name } }
-            }}
+            }},
+            { "customData", new BsonDocument { { "state", "ACTIVE" } } }
         };
 
         await adminDb.RunCommandAsync<BsonDocument>(cmd);
@@ -87,7 +89,8 @@ public class MongoDbProvider : IDatabaseProvider
         var cmd = new BsonDocument
         {
             { "updateUser", instance.Username },
-            { "roles", new BsonArray() } // sin roles → sin permisos
+            { "roles", new BsonArray() }, // sin roles → sin permisos
+            { "customData", new BsonDocument { { "state", "STOPPED" } } }
         };
 
         await adminDb.RunCommandAsync<BsonDocument>(cmd);
@@ -103,6 +106,19 @@ public class MongoDbProvider : IDatabaseProvider
         var result = new QueryResultDto();
         try
         {
+            var adminClient = new MongoClient(
+                $"mongodb://{_adminUser}:{_adminPassword}@{_host}:{_port}/admin"
+            );
+            var adminDb = adminClient.GetDatabase("admin");
+            var user = await adminDb.RunCommandAsync<BsonDocument>(new BsonDocument { { "usersInfo", instance.Username } });
+            var customData = user["users"][0]["customData"].AsBsonDocument;
+            if (customData.Contains("state") && customData["state"].AsString == "STOPPED")
+            {
+                result.Success = false;
+                result.Message = "Instance is currently stopped. Access denied.";
+                return result;
+            }
+
             var client = new MongoClient(
                 $"mongodb://{instance.Username}:{decryptedPassword}@{_host}:{_port}/{instance.Name}"
             );

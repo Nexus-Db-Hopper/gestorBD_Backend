@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  main-mysql-server:
+    image: mysql:latest
+    container_name: nexusdb-main-mysql-server
+    environment:
+      MYSQL_ROOT_PASSWORD: a_strong_password_for_root
+      MYSQL_DATABASE: nexusDB_metadata # This is the main DB for the API itself
+      MYSQL_ROOT_HOST: "%" # Allow root connections from any host (important for some Docker setups)
+    ports:
+      - "3306:3306"
+    volumes:
+      - main-mysql-data:/var/lib/mysql
+
+  main-postgres-server:
+    image: postgres:latest
+    container_name: nexusdb-main-postgres-server
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: a_strong_password_for_postgres
+      POSTGRES_DB: nexusDB_metadata_pg # Main DB for the API itself (if using Postgres for metadata)
+      PGDATA: /var/lib/postgresql/data/pgdata # Explicitly set data directory inside the volume
+    ports:
+      - "5432:5432"
+    volumes:
+      - main-postgres-data:/var/lib/postgresql/data # Mount volume to /var/lib/postgresql/data
+    # No need for command, PGDATA env var handles it
+
+volumes:
+  main-mysql-data:
+  main-postgres-data:

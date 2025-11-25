@@ -1,125 +1,215 @@
 # Gestor de BD - API Backend
 
-API RESTful construida con .NET 9 y ASP.NET Core, diseñada siguiendo los principios de Arquitectura Limpia (Clean Architecture). Proporciona una base sólida y segura para la gestión de usuarios y autenticación utilizando JSON Web Tokens (JWT) con soporte para Refresh Tokens y un sistema de logout seguro.
+API RESTful construida con .NET 9 y ASP.NET Core, diseñada siguiendo los principios de Arquitectura Limpia. Su propósito es la gestión de usuarios y la provisión de instancias de bases de datos MySQL en contenedores Docker aislados, con autenticación JWT y autorización basada en roles.
 
 ## Características Principales
 
--   **Autenticación Segura con JWT**: Implementación completa de Access Tokens y Refresh Tokens.
--   **Logout del Lado del Servidor**: Invalidación de Refresh Tokens para un cierre de sesión seguro.
--   **Autorización Basada en Roles**: Endpoints protegidos que requieren roles específicos (ej. "Admin").
+-   **Provisión de Instancias MySQL con Docker**: Creación, gestión y aislamiento de bases de datos MySQL en contenedores Docker individuales.
+-   **Aislamiento en Entornos Compartidos**: Uso de nombres de contenedor únicos, etiquetas Docker y límites de recursos (CPU/RAM) para garantizar una operación segura en entornos multi-inquilino como la UPS.
+-   **Persistencia de Datos con Volúmenes Docker**: Los datos de las instancias se almacenan en volúmenes persistentes en el host, asegurando que no se pierdan al reiniciar contenedores.
+-   **Autenticación Segura con JWT**: Implementación de Access Tokens y Refresh Tokens.
+-   **Autorización Basada en Roles**: Endpoints protegidos que requieren roles específicos ("Admin" o "User").
 -   **Arquitectura Limpia**: Separación estricta de responsabilidades entre las capas de Dominio, Aplicación, Infraestructura y API.
--   **Domain-Driven Design (DDD)**: Uso de Value Objects (`Email`, `Password`, `PersonName`) para encapsular la lógica de negocio y asegurar la validez de los datos en el núcleo del dominio.
--   **Hashing de Contraseñas y Refresh Tokens**: Uso de `BCrypt.Net` para almacenar credenciales y tokens de forma segura.
--   **Manejo de Resultados Explícito**: Implementación de objetos `Result` para un manejo de errores y éxitos claro y tipado.
--   **Respuestas de Error Estandarizadas**: Uso de `ProblemDetails` para devolver errores consistentes según las guías de Microsoft.
--   **Entity Framework Core 9**: Interacción con la base de datos MySQL a través del proveedor Pomelo.
--   **Documentación de API con Swagger**: Interfaz de usuario interactiva para probar los endpoints de la API, configurada para manejar la autenticación JWT.
-
-## Arquitectura del Proyecto
-
-El proyecto sigue una estricta estructura de Arquitectura Limpia, donde las dependencias fluyen hacia el centro (Dominio).
-
-```
-Api/ → Application/ → Domain ←
-Infrastructure/ → Application/ → Domain ←
-```
-
--   **`Domain`**: Contiene las entidades puras del negocio (`User`, `Role`) y los Value Objects. Es el núcleo y no depende de ninguna otra capa.
--   **`Application`**: Contiene la lógica de la aplicación, definiendo los "casos de uso" a través de interfaces (`IAuthService`, `IJwtService`) y los DTOs que sirven como contratos de datos.
--   **`Infrastructure`**: Implementa las interfaces de la capa de Aplicación. Contiene la lógica de acceso a la base de datos (`AppDbContext`), la implementación de servicios externos (`JwtService`, `AuthService`) y otras preocupaciones técnicas.
--   **`Api`**: Es el punto de entrada de la aplicación. Contiene los Controladores, la configuración del middleware y el arranque de la aplicación (`Program.cs`).
+-   **Entity Framework Core 9**: Interacción con la base de datos de metadatos (MySQL) a través del proveedor Pomelo.
+-   **Documentación de API con Swagger**: Interfaz de usuario interactiva para probar los endpoints.
 
 ## Cómo Empezar
 
-Sigue estos pasos para levantar el entorno de desarrollo local.
+Esta guía es para configurar el proyecto por primera vez en un entorno de desarrollo local, conectándose a la base de datos compartida en Aiven.
 
 ### Prerrequisitos
 
--   [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
--   Una instancia de base de datos MySQL en ejecución.
+-   **[.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)**
+-   **Docker Desktop**: Debe estar instalado y **en ejecución** en tu máquina.
+-   **Un cliente MySQL (Opcional pero recomendado)**: DBeaver, DataGrip, o el CLI de `mysql` para verificar la conexión.
 
-### 1. Configuración
+### 1. Configuración del Proyecto
 
 -   Clona este repositorio.
--   Abre el archivo `nexusDB.Api/appsettings.Development.json`.
--   Modifica la cadena de conexión `DefaultConnection` para que apunte a tu base de datos MySQL.
+-   Abre el archivo `nexusDB.Api/appsettings.json` y verifica que la cadena de conexión `DefaultConnection` apunte a la base de datos compartida en Aiven. **No compartas esta información sensible en commits públicos.**
 
-    ```json
-    "ConnectionStrings": {
-      "DefaultConnection": "Server=localhost;Database=nexusDB;Port=3306;User=root;Password=tu_contraseña;"
-    }
-    ```
-    Asegúrate de que el usuario de la base de datos tenga permisos para crear y eliminar bases de datos.
+### 2. Sincronización de la Base de Datos (Método Seguro)
 
-### 2. Configuración de la Base de Datos
+Esta sección explica cómo asegurar que tu base de datos local esté sincronizada sin afectar la base de datos compartida.
 
-Usa Entity Framework Core para crear y sembrar la base de datos y las tablas a partir de las entidades del proyecto.
+**Paso 2.1: Verificar Conexión a Aiven (Opcional)**
 
-Abre una terminal en la raíz del proyecto (`C:/Users/Msuthy/Desktop/gestorBD_Backend/`) y ejecuta los siguientes comandos:
+Puedes probar tu conexión a la base de datos compartida usando el siguiente comando en una terminal (CMD o PowerShell). Se te pedirá la contraseña de forma interactiva y segura.
 
-1.  **Eliminar la base de datos existente (si hay alguna):**
+```sh
+mysql --user avnadmin -p --host elconectorhost.example.com --port tupuerto --database elnombre
+```
+
+**Paso 2.2: Instalar Herramientas de EF Core**
+
+Este proyecto utiliza una versión local de las herramientas de Entity Framework Core para evitar conflictos. Ejecuta estos comandos **una sola vez** en la raíz del proyecto:
+
+1.  **Crear el manifiesto de herramientas:**
     ```sh
-    dotnet ef database drop --project nexusDB.Infrastructure --startup-project nexusDB.Api
+    dotnet new tool-manifest
     ```
-    Confirma con `y` cuando se te solicite.
-
-2.  **Eliminar la carpeta de migraciones (si existe):**
-    Para asegurar un estado limpio, elimina la carpeta `Migrations` dentro del proyecto `nexusDB.Infrastructure`.
-
-3.  **Crear una nueva migración inicial:**
+2.  **Instalar la versión correcta de `dotnet-ef`:**
     ```sh
-    dotnet ef migrations add InitialCreate --project nexusDB.Infrastructure --startup-project nexusDB.Api
+    dotnet tool install dotnet-ef --version 9.0.0
     ```
-    Este comando creará una migración que incluye la creación de tablas y el seeding de los roles "User" y "Admin".
 
-4.  **Aplicar la migración a la base de datos:**
-    ```sh
-    dotnet ef database update --project nexusDB.Infrastructure --startup-project nexusDB.Api
-    ```
-    Esto creará la base de datos y las tablas, e insertará los roles iniciales.
+**Paso 2.3: Aplicar Migraciones Pendientes (Comando Seguro)**
+
+El siguiente comando **NO es destructivo**. Compara el estado de la base de datos en Aiven con el código y solo aplica las migraciones que falten. Es seguro ejecutarlo incluso si la base de datos ya está actualizada.
+
+```sh
+dotnet ef database update --project nexusDB.Infrastructure --startup-project nexusDB.Api
+```
 
 ### 3. Ejecutar la Aplicación
 
-```sh
-dotnet run --project nexusDB.Api
+1.  **Asegúrate de que Docker Desktop esté en ejecución.** Este es un requisito indispensable para que la API pueda crear los contenedores de las instancias.
+2.  Ejecuta la aplicación desde tu IDE o con el siguiente comando en la terminal:
+    ```sh
+    dotnet run --project nexusDB.Api
+    ```
+
+La API estará disponible en `https://localhost:XXXX`. La documentación de Swagger estará en `https://localhost:XXXX/swagger`.
+
+---
+
+## Endpoints de la API
+
+### Autenticación (`/api/Auth`)
+
+-   `POST /register`: Registra un nuevo usuario.
+-   `POST /login`: Inicia sesión y obtiene tokens JWT.
+-   `POST /refresh`: Refresca el Access Token.
+-   `POST /logout`: Invalida el Refresh Token.
+
+### Gestión de Instancias (`/api/instances`)
+
+Endpoints para la creación y gestión de instancias MySQL en contenedores Docker, con control de acceso por roles.
+
+#### **Endpoints para Administradores (`[Authorize(Roles = "Admin")]`)**
+
+-   **`POST /api/instances`**
+    -   **Descripción**: Crea una nueva instancia MySQL en un contenedor Docker y la asigna a un usuario.
+    -   **Consumo (Body JSON)**:
+        ```json
+        {
+          "engine": "mysql",
+          "name": "db_para_estudiante",
+          "username": "user_estudiante",
+          "userPassword": "password_seguro_123",
+          "ownerUserId": 2 
+        }
+        ```
+    -   **Respuesta Exitosa**: `201 Created`.
+
+-   **`GET /api/instances`**
+    -   **Descripción**: Obtiene una lista de todas las instancias registradas.
+    -   **Respuesta Exitosa**: `200 OK` con un array de objetos `Instance`.
+
+-   **`GET /api/instances/user/{userId}`**
+    -   **Descripción**: Obtiene los detalles de la instancia asignada a un usuario específico.
+    -   **Respuesta Exitosa**: `200 OK` con el objeto `Instance`.
+
+#### **Endpoints para Usuarios (`[Authorize(Roles = "User")]`)**
+
+-   **`GET /api/instances/my-instance`**
+    -   **Descripción**: Obtiene los detalles de la instancia asignada al usuario autenticado.
+    -   **Respuesta Exitosa**: `200 OK` con el objeto `Instance`.
+    -   **Respuesta si no existe**: `404 Not Found`.
+
+-   **`POST /api/instances/query`**
+    -   **Descripción**: Ejecuta una consulta SQL en la instancia asignada al usuario.
+    -   **Consumo (Body JSON)**:
+        ```json
+        {
+          "query": "SELECT * FROM mi_tabla;"
+        }
+        ```
+    -   **Respuesta Exitosa**: `200 OK` con el resultado de la consulta.
+
+### Diagrama de Casos de Uso (PlantUML)
+
+```plantuml
+@startuml
+!define RECTANGLE class
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+skinparam usecase {
+  BackgroundColor #0EA5E9          <<Admin>>
+  BorderColor     #0369A1          <<Admin>>
+  BackgroundColor #10B981          <<Student>>
+  BorderColor     #047857          <<Student>>
+}
+
+actor Administrador
+actor Estudiante
+
+rectangle "Sistema GestorBD" {
+  usecase "UC-01\nIniciar sesión" as UC01
+
+  usecase "UC-02a\nCrear instancia BD" as UC02a <<Admin>>
+  usecase "UC-02b\nIniciar/detener motor" as UC02b <<Admin>>
+  usecase "UC-02c\nEliminar instancia" as UC02c <<Admin>>
+  usecase "UC-02d\nListar todas las instancias" as UC02d <<Admin>>
+  usecase "UC-02e\nVer instancia de usuario" as UC02e <<Admin>>
+
+  usecase "UC-03\nAsignar instancia" as UC03 <<Admin>>
+  usecase "UC-04\nMonitorear logs" as UC04 <<Admin>>
+  usecase "UC-09\nReiniciar motor" as UC09 <<Admin>>
+
+  usecase "UC-05\nVer mi instancia" as UC05 <<Student>>
+  usecase "UC-06\nEjecutar consultas" as UC06 <<Student>>
+  usecase "UC-07\nCRUD visual" as UC07 <<Student>>
+  usecase "UC-08\nExportar datos" as UC08 <<Student>>
+
+  ' Servicios internos (sin actor stick)
+  usecase "Validar Docker" as UC10
+  usecase "Notificar asignación" as UC11
+}
+
+' --------- Relaciones actor → UC ---------
+Administrador --> UC01
+Estudiante    --> UC01
+
+Administrador --> UC02a
+Administrador --> UC02b
+Administrador --> UC02c
+Administrador --> UC02d
+Administrador --> UC02e
+Administrador --> UC03
+Administrador --> UC04
+Administrador --> UC09
+
+Estudiante --> UC05
+Estudiante --> UC06
+Estudiante --> UC07
+Estudiante --> UC08
+
+' --------- Includes (obligatorios) ---------
+UC02a ..> UC10 : <<include>>
+UC02b ..> UC10 : <<include>>
+UC02c ..> UC10 : <<include>>
+UC03  ..> UC11 : <<include>>
+UC09  ..> UC10 : <<include>>
+
+' --------- Extend (opcional) ---------
+UC06 ..> UC07 : <<extend>>
+@enduml
 ```
 
-La API estará disponible en `https://localhost:XXXX` (la URL se mostrará en la consola). La documentación de Swagger estará disponible en `https://localhost:XXXX/swagger`.
-
-## Endpoints de la API de Autenticación
-
-(Esta sección no requiere cambios, ya que la funcionalidad de los endpoints es la misma)
-
-... (El resto del README.md se mantiene igual)
-1.  **Registra un usuario** usando el endpoint `POST /register`.
-2.  **Inicia sesión** con ese usuario usando `POST /login`. Copia el `accessToken` y el `refreshToken` de la respuesta.
-3.  **Autoriza Swagger**: Haz clic en el botón `Authorize` en la parte superior derecha. En el diálogo, escribe `Bearer TU_ACCESS_TOKEN` (reemplazando `TU_ACCESS_TOKEN` con el token que copiaste) y haz clic en `Authorize`.
-4.  **Accede al perfil**: Ejecuta `GET /profile`. Deberías recibir una respuesta `200 OK`.
-5.  **Prueba el rol**: Ejecuta `GET /admin-data`. Deberías recibir una respuesta `403 Forbidden`, ya que el usuario por defecto tiene el rol "User".
-6.  **Refresca la sesión**: Usa el `refreshToken` en el endpoint `POST /refresh`. Recibirás un nuevo par de tokens.
-7.  **Cierra sesión**: Asegurándote de que sigues autorizado con un token válido, ejecuta `POST /logout`. Recibirás una respuesta `204 No Content`.
-8.  **Verifica el logout**: Intenta usar el `refreshToken` original de nuevo en `POST /refresh`. Deberías recibir una respuesta `401 Unauthorized`, confirmando que el token fue invalidado.
-
-
-# Librerias Docker usadas (temporal, borrar al terminar)
-El proyecto "nexusDB.Api" tiene las referencias de paquete siguientes
-[net9.0]:
-Paquete de nivel superior                            Solicitado           Resuelto
-> Microsoft.AspNetCore.Authentication.JwtBearer      9.0.0-rc.2.24470.3   9.0.0-rc.2.24474.3
-> Microsoft.AspNetCore.OpenApi                       9.0.11               9.0.11            
-> Swashbuckle.AspNetCore.Filters                     9.0.0-beta.2         9.0.0             
-> Swashbuckle.AspNetCore.SwaggerUI                   9.0.6                9.0.6
-
-El proyecto "nexusDB.Application" tiene las referencias de paquete siguientes
-[net9.0]: No se encontró ningún paquete para este marco.
-El proyecto "nexusDB.Domain" tiene las referencias de paquete siguientes
-[net9.0]: No se encontró ningún paquete para este marco.
-El proyecto "nexusDB.Infrastructure" tiene las referencias de paquete siguientes                                                                                  
-[net9.0]:
-Paquete de nivel superior                   Solicitado   Resuelto
-> BCrypt.Net-Next                           4.0.3        4.0.3   
-> Docker.DotNet                             3.125.15     3.125.15
-> Microsoft.EntityFrameworkCore             9.0.0        9.0.0   
-> Microsoft.EntityFrameworkCore.Design      9.0.0        9.0.0   
-> Pomelo.EntityFrameworkCore.MySql          9.0.0        9.0.0   
-> System.IdentityModel.Tokens.Jwt           8.14.0       8.14.0  
+| UC-ID  | Nombre (en el diagrama) | Actor      | ¿Qué hace?                               | Criterio rápido                               |
+| ------ | ----------------------- | ---------- | ---------------------------------------- | --------------------------------------------- |
+| UC-01  | Iniciar sesión          | Ambos      | Login JWT                                | Token ≤ 15 min                                |
+| UC-02a | Crear instancia BD      | Admin      | Crea motor MySQL en Docker               | Puerto dinámico, límites CPU/RAM, volumen persistente |
+| UC-02b | Iniciar/detener motor   | Admin      | Start/stop contenedor Docker             | Docker running/stopped ≤ 30 s                 |
+| UC-02c | Eliminar instancia      | Admin      | Borra contenedor Docker y registro en DB | Sin errores, log audit                        |
+| UC-02d | Listar todas las instancias | Admin  | Obtiene todas las instancias registradas | Muestra todas las instancias                  |
+| UC-02e | Ver instancia de usuario | Admin     | Obtiene instancia de un usuario específico | Muestra instancia o 404                       |
+| UC-03  | Asignar instancia       | Admin      | Entrega BD a alumno (parte de UC-02a)    | Solo sus instancias                           |
+| UC-04  | Monitorear logs         | Admin      | Ver logs/métricas (futuro)               | Delay < 5 s                                   |
+| UC-09  | Reiniciar motor         | Admin      | Recupera falla (futuro)                  | Reinicio < 30 s                               |
+| UC-05  | Ver mi instancia        | Estudiante | Ve datos de conexión de su instancia     | Carga ≤ 3 s                                   |
+| UC-06  | Ejecutar consultas      | Estudiante | Query SQL/NoSQL en su instancia          | Resultados < 30 s                             |
+| UC-07  | CRUD visual             | Estudiante | Edición gráfica (futuro)                 | Extend opcional                               |
+| UC-08  | Exportar datos          | Estudiante | Descarga CSV/JSON (futuro)               | Archivo ≤ 50 MB, < 10 s                       |

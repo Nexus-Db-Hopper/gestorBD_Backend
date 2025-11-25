@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides; // Added for ForwardedHeaders
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using nexusDB.Application.Configuration;
@@ -19,13 +20,36 @@ var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURACIÓN DE SERVICIOS ---
 
-// 1. Política de CORS
+// 1. Política de CORS (FINAL Y ROBUSTA)
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins, policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins("http://localhost:5173") // Desarrollo local del frontend
+              .SetIsOriginAllowedToAllowWildcardSubdomains() // Permite subdominios para los orígenes configurados con wildcard
+              .SetIsOriginAllowed(origin =>
+              {
+                  // Permite localhost:5173
+                  if (origin == "http://localhost:5173")
+                  {
+                      return true;
+                  }
+                  // Permite cualquier subdominio de vercel.app
+                  if (origin.StartsWith("https://") && origin.EndsWith(".vercel.app"))
+                  {
+                      return true;
+                  }
+                  // Permite un dominio personalizado futuro (ejemplo)
+                  // if (origin == "https://your-custom-frontend-domain.com")
+                  // {
+                  //     return true;
+                  // }
+                  return false;
+              })
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Importante para JWT con cookies o headers de auth
     });
 });
 
@@ -53,9 +77,6 @@ builder.Services.AddSwaggerGen(options =>
 // Application
 builder.Services.AddScoped<IInstanceService, InstanceService>();
 
-
-
-
 // 5. Autenticación JWT
 builder.Services.AddAuthentication(options =>
     {
@@ -74,27 +95,38 @@ builder.Services.AddAuthentication(options =>
             ValidIssuer = jwtSettings.Issuer,
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-            // MEJORA: Validar el tiempo de vida del token con un margen de cero.
             ClockSkew = TimeSpan.Zero
         };
     });
 
-
 // --- CONFIGURACIÓN DEL PIPELINE HTTP ---
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Configure Forwarded Headers Middleware
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+// Always enable Swagger UI at /swagger
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "nexusDB.Api v1");
+    c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
+});
+
 
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins);
+
+// CORRECTED CORS ORDER: UseRouting -> UseCors -> UseAuthentication -> UseAuthorization -> MapControllers
+app.UseRouting(); // Must be before UseCors
+
+app.UseCors(MyAllowSpecificOrigins); // Apply CORS policy
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapControllers(); // Implies UseEndpoints
 
 app.Run();
